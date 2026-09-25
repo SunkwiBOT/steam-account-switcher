@@ -3,7 +3,7 @@ resolver = "2"
 members = ["steam-core", "src-tauri"]
 
 [workspace.package]
-version = "1.1.0"
+version = "1.0.2"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT"
