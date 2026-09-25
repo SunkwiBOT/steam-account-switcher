@@ -1,0 +1,37 @@
+[package]
+name = "steam-account-switcher"
+description = "Steam account switcher desktop application."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[features]
+# Without it Tauri compiles in development mode and loads `devUrl` instead of
+# the interface embedded in the binary. Required for release builds.
+custom-protocol = ["tauri/custom-protocol"]
+
+[dependencies]
+steam-core = { path = "../steam-core" }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-opener = "2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Needed to give the window a proper app id / WM class on Linux, so the
+# desktop environment pairs it with the installed .desktop entry and shows the
+# application icon instead of a generic placeholder.
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18"
+glib = "0.18"
+
+[[bin]]
+name = "steam-account-switcher"
+path = "src/main.rs"

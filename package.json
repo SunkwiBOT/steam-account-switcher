@@ -1,0 +1,42 @@
+{
+  "name": "steam-account-switcher",
+  "version": "1.1.0",
+  "private": true,
+  "license": "MIT",
+  "repository": "https://github.com/SunkwiBOT/steam-account-switcher",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "tauri": "tauri",
+    "dev:app": "tauri dev",
+    "build": "vite build",
+    "build:app": "tauri build --no-bundle -- --locked",
+    "bundle:linux": "NO_STRIP=true tauri build --bundles appimage,rpm -- --locked",
+    "bundle:windows": "tauri build --bundles nsis -- --locked",
+    "preview": "vite preview",
+    "lint": "oxlint ui/src vite.config.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run check:web && npm run check:rust",
+    "check:interface": "svelte-check --tsconfig ./ui/tsconfig.json",
+    "check:web": "npm run check:interface && npm run lint && npm run format:check",
+    "check:rust": "cargo fmt --all --check && cargo clippy --locked --workspace --all-targets -- -D warnings",
+    "test:rust": "cargo test --locked --workspace"
+  },
+  "devDependencies": {
+    "@lucide/svelte": "^1.48.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tauri-apps/cli": "^2.11.5",
+    "@tsconfig/svelte": "^5.0.8",
+    "oxlint": "^1.85.0",
+    "prettier": "^3.9.9",
+    "prettier-plugin-svelte": "^4.1.1",
+    "svelte": "^5.57.1",
+    "svelte-check": "^4.7.6",
+    "typescript": "~6.0",
+    "vite": "^8.3.1"
+  }
+}

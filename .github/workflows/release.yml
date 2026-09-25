@@ -1,0 +1,147 @@
+name: release
+run-name: release v${{ inputs.version }}
+
+# Starting it by hand publishes the version typed in the input: the workflow
+# writes it into the project, tags it, then builds and signs the Linux and
+# Windows bundles and creates the GitHub release the application updates from.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, without the leading v (for example 0.2.0)"
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Tags tell whether the requested version is already published.
+          fetch-depth: 0
+
+      - name: Check the version
+        id: check
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          python3 .github/bump-version.py --check-next "$RELEASE_VERSION"
+          echo "version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Write it into the project
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: python3 .github/bump-version.py "$RELEASE_VERSION"
+
+      - name: Tag the release
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          version="v$RELEASE_VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No version change to commit"
+          else
+            git commit -m "chore(release): $version"
+          fi
+
+          git tag -a "$version" -m "Steam Account Switcher $version"
+          # Only the tag is published: the release commit stays off `main`, so
+          # the branch keeps exactly the history written by hand.
+          git push origin "refs/tags/$version"
+
+  publish:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            args: --bundles appimage,rpm -- --locked
+          - platform: windows-latest
+            args: --bundles nsis -- --locked
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
+
+      - name: Install WebKitGTK and packaging tools
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf rpm file
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install the interface dependencies
+        run: npm ci
+
+      - name: Check the interface
+        run: npm run check:web
+
+      - name: Check and test Rust
+        run: |
+          npm run check:rust
+          npm run test:rust
+
+      - name: Build, sign and publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NO_STRIP: "true"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v${{ needs.version.outputs.version }}
+          releaseName: "Steam Account Switcher v${{ needs.version.outputs.version }}"
+          releaseBody: "Download the installer for your system. Existing installations update themselves from the in-app button."
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
+          args: ${{ matrix.args }}
+
+      - name: Attach the portable Windows executable
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp target/release/steam-account-switcher.exe SteamAccountSwitcher-portable.exe
+          gh release upload "v${{ needs.version.outputs.version }}" SteamAccountSwitcher-portable.exe --clobber
+
+  finalize:
+    needs: [version, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the complete release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: gh release edit "v$RELEASE_VERSION" --draft=false

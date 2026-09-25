@@ -1,0 +1,1798 @@
+/* Steam Account Switcher theme and component styles. */
+
+:root {
+  --window: #171a21;
+  --panel: #1b2838;
+  --base: #0e141b;
+  --base-alt: #111923;
+  --border: #26384b;
+  --border-strong: #35566e;
+  --grid: #223348;
+  --text: #c7d5e0;
+  --text-strong: #dfe3e6;
+  --muted: #8f98a0;
+  --accent: #66c0f4;
+  --green: #a4d85f;
+  --button: #2a475e;
+  --button-hover: #365f7c;
+  --primary: #5c7e10;
+  --primary-hover: #6a9212;
+  --primary-border: #8bc53f;
+  --danger: #6f2a28;
+  --danger-hover: #87352f;
+  --danger-border: #a34b44;
+  --current: #1f7a3f;
+  --avatar: #2a475e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--window);
+  color: var(--text);
+  font-family: "Noto Sans", "Inter", "Segoe UI", "DejaVu Sans", sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+  /* Cards and chrome are controls, not text: dragging across them must never
+     leave a selection behind. WebKit needs the prefixed property, otherwise the
+     whole interface stays selectable. Inputs re-enable selection below. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#app,
+.app {
+  height: 100%;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+img {
+  -webkit-user-drag: none;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4f7c9c;
+}
+
+/* ------------------------------------------------------------- app header */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.brand-icon {
+  display: block;
+  width: 34px;
+  height: 34px;
+}
+
+.brand:hover {
+  border-color: var(--border-strong);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.app-header .icon-button {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--button);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-strong);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.app-header .icon-button:hover {
+  background: var(--button);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  background: var(--base);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+}
+
+.search-wrap:focus-within {
+  border-color: var(--accent);
+}
+
+.search-icon {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+}
+
+.search {
+  width: 230px;
+  padding: 8px 0;
+  background: transparent;
+  border: 0;
+  color: var(--text-strong);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px 16px 6px;
+  min-height: 20px;
+  /* Above the grid, so a hovered card never paints over it. */
+  position: relative;
+  z-index: 3;
+}
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.crumb:hover {
+  background: var(--base-alt);
+  color: #ffffff;
+}
+
+.crumb.current {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.crumb-sep {
+  color: #5c6a78;
+}
+
+/* ------------------------------------------------------------------ cards */
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  /* Cards keep their own height instead of stretching to the tallest one. */
+  align-items: start;
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  /* Same card size as before. The avatar is a touch smaller and the padding
+     tighter so the playtime / rank row can sit at the bottom of the card. */
+  height: 146px;
+  padding: 8px 10px 4px;
+  background: var(--base-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  overflow: hidden;
+  text-align: center;
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.card img,
+.card svg {
+  /* No image drag ghost, no accidental selection when double clicking. */
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.card .card-view {
+  pointer-events: auto;
+}
+
+.card.switching {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+/* While a switch runs the other cards are dimmed and inert: no second switch
+   can be started from the grid. */
+.cards.locked .card:not(.switching) {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.card-loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 12, 18, 0.45);
+  border-radius: inherit;
+}
+
+.card-loader[hidden] {
+  display: none;
+}
+
+.spinner.small {
+  width: 22px;
+  height: 22px;
+  border-width: 2px;
+}
+
+.spinner.tiny {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.button.spinning {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+}
+
+.card:hover {
+  z-index: 2;
+  background: #16202c;
+  border-color: var(--border-strong);
+}
+
+.card.current {
+  border-color: var(--current);
+  box-shadow:
+    inset 0 0 0 1px var(--current),
+    0 0 14px rgba(31, 122, 63, 0.35);
+}
+
+.card.current .card-badge {
+  display: inline-block;
+}
+
+.card-accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--card-accent, transparent);
+}
+
+.card-badge {
+  display: none;
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: var(--current);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.card-avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 22px;
+}
+
+.card-name {
+  width: 100%;
+  text-align: center;
+  color: var(--text-strong);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-meta {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  margin-top: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* Revealed on hover: a single click on the card itself does nothing. */
+.card-view {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.card:hover .card-view,
+.card:focus-within .card-view,
+.card-view:focus-visible {
+  opacity: 1;
+}
+
+.card-view:hover {
+  background: var(--button);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.card-playtime {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.card-rank {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: auto;
+  color: var(--text);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.card-rank span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-rank img {
+  width: 30px;
+  height: 30px;
+}
+
+.card-rank-icon {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.folder-card,
+.back-card {
+  justify-content: flex-start;
+}
+
+/* The back card has no playtime row, so its content is centred vertically. */
+.back-card {
+  justify-content: center;
+}
+
+.folder-card .folder-icon,
+.back-card .folder-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: var(--avatar);
+  color: var(--accent);
+}
+
+.back-card .folder-icon {
+  color: var(--text);
+}
+
+.folder-card .card-meta {
+  justify-content: center;
+  color: var(--muted);
+}
+
+/* The window is in the background: no animation work at all. */
+.app.idle .card,
+.app.idle .card:hover {
+  transform: none;
+  transition: none;
+}
+
+.app.idle .spinner {
+  animation: none;
+}
+
+.field-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.input,
+.button {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-strong);
+  background: var(--base);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  padding: 6px 10px;
+  min-height: 30px;
+}
+
+/* Focus ring drawn inside the control, so a scroll container cannot crop it. */
+.input:focus,
+.input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* Scoped to the real input: a class named `switch` on any other element must
+   not inherit the toggle look (that once drew a grey knob inside a menu item). */
+input.switch {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 24px;
+  margin: 0;
+  border-radius: 12px;
+  background: var(--base);
+  border: 1px solid var(--border-strong);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+input.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+input.switch:checked {
+  background: var(--primary);
+  border-color: var(--primary-border);
+}
+
+input.switch:checked::after {
+  transform: translateX(18px);
+  background: #ffffff;
+}
+
+input.switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.checkbox input[type="checkbox"] {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--base);
+  cursor: pointer;
+}
+
+.checkbox input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--primary-border);
+}
+
+.checkbox input[type="checkbox"]:checked::after {
+  content: "✓";
+  display: block;
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.checkbox {
+  font-size: 13px;
+}
+
+select.input {
+  flex: 1 1 auto;
+  min-width: 220px;
+  appearance: none;
+  /* Inline chevron: no extra asset file to keep in sync with the theme. */
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c7d5e0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 18px 18px;
+  padding-right: 28px;
+}
+
+select.input option {
+  background: var(--base);
+  color: var(--text-strong);
+}
+
+.button {
+  background: var(--button);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+.button:hover:not(:disabled) {
+  background: var(--button-hover);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.button:disabled {
+  background: #182331;
+  color: #67707b;
+  border-color: #253548;
+  cursor: default;
+}
+
+/* Dropdown trigger: looks like the inputs, opens a menu instead of a list. */
+.select-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 220px;
+  padding: 7px 10px;
+  background: var(--base);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--text-strong);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+.select-button:hover {
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.select-button span:first-child {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-button[hidden] {
+  display: none;
+}
+
+.dropdown-menu {
+  min-width: 240px;
+  max-width: min(560px, 90vw);
+}
+
+.input.full {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.button.primary {
+  background: var(--primary);
+  border-color: var(--primary-border);
+  color: #f2fbe9;
+  font-weight: 700;
+}
+
+.button.primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--green);
+}
+
+.button.danger {
+  background: var(--danger);
+  border-color: var(--danger-border);
+  color: #ffe5e1;
+}
+
+.button.danger:hover:not(:disabled) {
+  background: var(--danger-hover);
+  border-color: #d66a60;
+}
+
+/* One focus style everywhere, drawn inside so a scroll container cannot crop
+   it: the same trap that clipped the input ring before. */
+.button:focus-visible,
+.icon-button:focus-visible,
+.crumb:focus-visible,
+.menu-item:focus-visible,
+.card:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+  outline: none;
+}
+
+.button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.button.ghost:hover:not(:disabled) {
+  background: var(--button);
+  border-color: var(--border-strong);
+  color: #ffffff;
+}
+
+.playtime-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--green);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 7px;
+  min-height: 26px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.playtime-total:hover:not(:disabled) {
+  background: #142232;
+  border-color: var(--border-strong);
+  color: #c7f08a;
+}
+
+.playtime-total:disabled {
+  color: #67707b;
+  cursor: default;
+}
+
+.active-game {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 4px;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ table */
+
+.content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 14px 10px;
+  gap: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.data-table {
+  width: 100%;
+  /* `separate` keeps the sticky header painted over the scrolling rows; with
+     `collapse` WebKit lets rows draw above it. */
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--panel);
+  color: var(--accent);
+  font-weight: 700;
+  text-align: left;
+  padding: 8px 6px;
+  box-shadow:
+    inset -1px 0 0 var(--border),
+    inset 0 -1px 0 var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.data-table tbody td {
+  padding: 4px 6px;
+  box-shadow: inset 0 -1px 0 var(--grid);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.data-table tbody tr {
+  height: 48px;
+}
+
+.data-table tbody tr:nth-child(even) {
+  background: var(--base-alt);
+}
+
+.data-table tbody tr:hover {
+  background: #16202c;
+}
+
+.data-table tbody tr.selected td {
+  box-shadow:
+    inset 0 2px 0 var(--accent),
+    inset 0 -2px 0 var(--accent);
+}
+
+.data-table tbody tr.selected td:first-child {
+  box-shadow:
+    inset 0 2px 0 var(--accent),
+    inset 2px 0 0 var(--accent),
+    inset 0 -2px 0 var(--accent);
+}
+
+.data-table tbody tr.selected td:last-child {
+  box-shadow:
+    inset 0 2px 0 var(--accent),
+    inset -2px 0 0 var(--accent),
+    inset 0 -2px 0 var(--accent);
+}
+
+.account-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: var(--avatar);
+}
+
+.avatar.initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.rank-icon {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.empty-state {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 28px;
+  margin: 0;
+}
+
+.status {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: right;
+  padding: 0 8px;
+}
+
+.version {
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.version:hover {
+  background: var(--base-alt);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+/* ----------------------------------------------------------------- footer */
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 10px;
+  border-top: 1px solid transparent;
+}
+
+.footer .playtime-total {
+  margin-left: auto;
+}
+
+.footer .playtime-total[hidden] {
+  display: none;
+}
+
+/* --------------------------------------------------------------- settings */
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  /* Flex children would otherwise shrink to nothing inside the dialog. */
+  flex: 0 0 auto;
+  gap: 4px;
+  max-height: 190px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--base);
+  padding: 6px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 3px;
+}
+
+.settings-row:hover {
+  background: #16202c;
+}
+
+.settings-row.hidden-entry .settings-label {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.settings-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+}
+
+.tag.custom {
+  border-color: var(--primary-border);
+  color: var(--green);
+}
+
+.tag.hidden {
+  border-color: #9f6b1f;
+  color: #ffd9a0;
+}
+
+.settings-row button {
+  min-height: 24px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+.settings-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.settings-add .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settings-path {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  word-break: break-all;
+}
+
+/* ----------------------------------------------------------------- modals */
+
+.modal[hidden] {
+  display: none;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 12, 18, 0.72);
+}
+
+.dialog {
+  position: relative;
+  width: min(1160px, 94vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px 14px;
+  background: var(--window);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.dialog.small {
+  width: min(520px, 92vw);
+  height: auto;
+  overflow: auto;
+}
+
+.checkbox[hidden],
+.busy[hidden],
+.toast[hidden],
+.context-menu[hidden],
+.modal[hidden],
+.settings-list[hidden] {
+  display: none;
+}
+
+.dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dialog-title {
+  margin: 0;
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.dialog-subtitle {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dialog-text {
+  color: var(--text);
+  margin: 4px 0 0;
+}
+
+.icon-button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+}
+
+.icon-button:hover {
+  background: var(--button);
+  color: #ffffff;
+}
+
+.playtime-summary {
+  margin: 0;
+  padding: 4px 0;
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.playtime-stats {
+  margin: 0;
+  padding: 2px 0;
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.history-notice {
+  margin: 0;
+  padding: 7px 9px;
+  background: #182738;
+  border: 1px solid #29445a;
+  border-radius: 3px;
+  color: #aeb6bf;
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs button {
+  background: var(--base-alt);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  min-width: 96px;
+  padding: 8px 18px;
+}
+
+.tabs button:hover {
+  background: var(--panel);
+  color: #ffffff;
+}
+
+.tabs button.active {
+  background: var(--panel);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--base);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  /* No top padding: the sticky table header has to sit flush with the scroll
+     port, otherwise rows scroll through the gap above it. */
+  padding: 0 10px 10px;
+}
+
+.dialog-body > .data-table {
+  margin-top: 10px;
+}
+
+.dialog-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.progress {
+  height: 8px;
+  margin: 14px 0 4px;
+  border-radius: 4px;
+  background: var(--base);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.progress-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  margin-top: 10px;
+}
+
+.checkbox input {
+  accent-color: var(--primary-border);
+}
+
+.chart {
+  width: 100%;
+  height: 220px;
+  display: block;
+  background: var(--base);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.chart-wrap {
+  position: relative;
+}
+
+.chart-tooltip {
+  position: absolute;
+  display: none;
+  z-index: 5;
+  padding: 4px 8px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--text-strong);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 8px;
+}
+
+.range-group {
+  display: flex;
+}
+
+.range-group button {
+  background: var(--base-alt);
+  border: 1px solid var(--border-strong);
+  border-right-width: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 5px 12px;
+}
+
+.range-group button:first-child {
+  border-radius: 3px 0 0 3px;
+}
+
+.range-group button:last-child {
+  border-right-width: 1px;
+  border-radius: 0 3px 3px 0;
+}
+
+.range-group button:hover {
+  background: var(--panel);
+  color: #ffffff;
+}
+
+.range-group button.active {
+  background: var(--button);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 260px;
+  padding-top: 10px;
+}
+
+.tab-panel .data-table thead th {
+  background: var(--panel);
+}
+
+.empty-tab {
+  color: var(--muted);
+  text-align: center;
+  padding: 24px;
+}
+
+/* ---------------------------------------------------------- account dialog */
+
+.account-dialog {
+  width: min(780px, 94vw);
+}
+
+.account-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.account-head-avatar .avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 22px;
+}
+
+.account-head-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.account-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 2px;
+}
+
+.account-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.fact {
+  padding: 8px 10px;
+  background: var(--base);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.fact-label {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.fact-value {
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.fact-value.clickable {
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.fact-value.copied {
+  color: var(--primary-border);
+}
+
+.account-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.block-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Rank picker: a button that opens a two column list, no inner scrolling. */
+.rank-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--base);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  color: var(--text-strong);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+/* Rank block: the ladder picker on top, then either the rank list or the
+   Premier rating field. */
+.rank-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rank-controls [hidden] {
+  display: none;
+}
+
+.rating-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rating-input {
+  width: 140px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  /* The spinner arrows fight with the tier colour and are useless here. */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.rating-input::-webkit-outer-spin-button,
+.rating-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.rating-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.rank-picker:hover {
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.rank-picker .rank-icon {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+}
+
+.picker-caret {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.settings-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(252px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+.settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--base-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.settings-card.wide {
+  grid-column: 1 / -1;
+}
+
+.settings-card-title {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.setting-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.color-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 30px;
+  align-items: center;
+}
+
+.account-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.color-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.color-swatch:hover {
+  border-color: var(--border-strong);
+}
+
+.color-swatch.active {
+  border-color: #ffffff;
+}
+
+.color-swatch.none {
+  background: var(--base);
+  border: 1px dashed var(--border-strong);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.fact-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fact.clickable {
+  cursor: pointer;
+}
+
+.fact-value.accent {
+  color: var(--accent);
+}
+
+.copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.copy-button:hover {
+  background: var(--button);
+  border-color: var(--border-strong);
+  color: #ffffff;
+}
+
+/* --------------------------------------------------------- context menu */
+
+.context-menu {
+  position: fixed;
+  z-index: 70;
+  min-width: 236px;
+  max-height: 70vh;
+  overflow: auto;
+  padding: 6px;
+  background: var(--base);
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text-strong);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+.menu-item:hover {
+  background: #1f3a4a;
+  border-color: var(--border-strong);
+  color: #ffffff;
+}
+
+.menu-item.danger {
+  color: #ffb8af;
+}
+
+/* Same accent as the primary Switch button, so the action reads the same in
+   the menu and in the dialog. */
+.menu-item.accent {
+  color: var(--green);
+}
+
+.menu-item.accent:hover {
+  color: #c7f08a;
+}
+
+.menu-item.danger:hover {
+  background: #3a2020;
+  border-color: var(--danger-border);
+}
+
+.menu-item.checked {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  color: var(--muted);
+}
+
+.menu-item.accent .menu-icon {
+  color: inherit;
+}
+
+.menu-check {
+  width: 16px;
+  color: var(--primary-border);
+  text-align: center;
+}
+
+.menu-heading {
+  margin: 4px 8px 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.context-menu hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 5px 4px;
+}
+
+.menu-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 8px 6px;
+}
+
+/* ------------------------------------------------------------- settings */
+
+.settings-dialog {
+  width: min(760px, 94vw);
+  height: min(560px, 86vh);
+}
+
+.settings-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: var(--base);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: auto;
+}
+
+.settings-tab {
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+.settings-tab:hover {
+  background: var(--button);
+  color: #ffffff;
+}
+
+.settings-tab.active {
+  background: var(--button);
+  border-color: var(--accent);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.settings-body {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 2px 4px 2px 0;
+}
+
+.settings-note {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-note code {
+  color: var(--text);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* ---------------------------------------------------------------- busy/ui */
+
+.busy {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(8, 12, 18, 0.6);
+  color: var(--text-strong);
+}
+
+.busy[hidden],
+.toast[hidden] {
+  display: none;
+}
+
+.spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--border-strong);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.toast {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  padding: 9px 14px;
+  border-radius: 4px;
+  border: 1px solid #8a3c34;
+  background: #321b1b;
+  color: #ffb8af;
+  max-width: 70vw;
+}
+
+.toast.ok {
+  border-color: var(--primary);
+  background: #1f3322;
+  color: #dff5c8;
+}

@@ -1,0 +1,14 @@
+node_modules/
+ui/dist/
+target/
+src-tauri/gen/
+src-tauri/icons/
+ui/public/
+package-lock.json
+Cargo.lock
+account/
+temp/
+old-version/
+scripts/
+.agents/
+.codex/

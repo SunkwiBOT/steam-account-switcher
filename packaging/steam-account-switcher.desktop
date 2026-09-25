@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name={{name}}
+Comment={{comment}}
+Exec={{exec}}{{#if exec_arg}} {{exec_arg}}{{/if}}
+Icon={{icon}}
+Terminal=false
+Categories={{categories}}
+StartupWMClass=steam-account-switcher
+StartupNotify=true
