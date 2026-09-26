@@ -61,7 +61,6 @@ export interface Commands {
   account_report: { args: { steamId: string }; result: Report };
   machine_report: { args: void; result: Report };
   app_info: { args: void; result: AppInfo };
-  open_repository: { args: void; result: void };
   set_window_active: { args: { active: boolean }; result: void };
   check_for_update: { args: void; result: UpdateInfo | null };
   download_update: { args: void; result: string };
@@ -77,6 +76,12 @@ export function invoke<K extends keyof Commands>(
   return bridge().core.invoke(command, args as Record<string, unknown> | undefined) as Promise<
     Commands[K]["result"]
   >;
+}
+
+/** Calls a plugin command: the typed `invoke` above only covers the commands
+ *  the application itself registers. */
+export function invokePlugin(command: string, args?: Record<string, unknown>): Promise<unknown> {
+  return bridge().core.invoke(command, args);
 }
 
 /** Events the Rust side emits while the application runs. */

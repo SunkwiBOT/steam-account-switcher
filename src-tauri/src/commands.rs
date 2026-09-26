@@ -1096,15 +1096,6 @@ pub fn app_info(app: tauri::AppHandle) -> AppInfoDto {
     }
 }
 
-/// Opens the project page in the default browser.
-#[tauri::command]
-pub fn open_repository(app: tauri::AppHandle) -> Result<(), String> {
-    use tauri_plugin_opener::OpenerExt;
-    app.opener()
-        .open_url(REPOSITORY_URL, None::<&str>)
-        .map_err(|error| error.to_string())
-}
-
 /// Restarts Steam at its own login window so the user can sign in to an
 /// account this application has never seen. Nothing is stored here: Steam
 /// performs the sign-in and writes `loginusers.vdf` itself.

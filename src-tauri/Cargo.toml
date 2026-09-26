@@ -33,5 +33,5 @@ gtk = "0.18"
 glib = "0.18"
 
 [[bin]]
-name = "steam-account-switcher"
+name = "accountswitcher"
 path = "src/main.rs"

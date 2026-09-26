@@ -48,7 +48,6 @@ fn main() {
             commands::set_account_color,
             commands::set_window_active,
             commands::app_info,
-            commands::open_repository,
             commands::add_steam_account,
             commands::check_for_update,
             commands::download_update,
@@ -127,9 +126,9 @@ fn configure_window(window: &tauri::WebviewWindow) {
 
     #[cfg(target_os = "linux")]
     {
-        glib::set_prgname(Some("steam-account-switcher"));
+        glib::set_prgname(Some("accountswitcher"));
         glib::set_application_name("Steam Account Switcher");
-        gtk::Window::set_default_icon_name("steam-account-switcher");
+        gtk::Window::set_default_icon_name("accountswitcher");
     }
 }
 

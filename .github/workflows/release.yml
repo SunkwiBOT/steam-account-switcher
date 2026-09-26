@@ -132,7 +132,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp target/release/steam-account-switcher.exe SteamAccountSwitcher-portable.exe
+          cp target/release/accountswitcher.exe SteamAccountSwitcher-portable.exe
           gh release upload "v${{ needs.version.outputs.version }}" SteamAccountSwitcher-portable.exe --clobber
 
   finalize:

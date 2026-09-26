@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { addAccount, updateButtonLabel } from "../lib/actions.svelte";
+  import { addAccount, openRepository, updateButtonLabel } from "../lib/actions.svelte";
   import { openDropdown } from "../lib/menus.svelte";
   import { app, run } from "../lib/state.svelte";
   import { ChevronDown, Download, Plus, RefreshCw, Search, Settings } from "@lucide/svelte";
@@ -41,7 +41,7 @@
     type="button"
     title="Open the project page on GitHub"
     aria-label="Open the project page on GitHub"
-    onclick={() => run("open_repository")}
+    onclick={openRepository}
   >
     <img class="brand-icon" src="/app-icon.png" alt="" draggable="false" />
   </button>

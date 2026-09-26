@@ -6,5 +6,9 @@ Exec={{exec}}{{#if exec_arg}} {{exec_arg}}{{/if}}
 Icon={{icon}}
 Terminal=false
 Categories={{categories}}
-StartupWMClass=steam-account-switcher
+# Matches `mainBinaryName` and the GTK program name, which is how the window is
+# paired with this entry. It must not contain a dash: KDE's icon loader cuts an
+# icon name at its first dash, so "steam-account-switcher" would resolve to the
+# Steam client's own icon in themes that ship one.
+StartupWMClass=accountswitcher
 StartupNotify=true

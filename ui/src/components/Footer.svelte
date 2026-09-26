@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { openMachineReport } from "../lib/actions.svelte";
-  import { app, run } from "../lib/state.svelte";
+  import { openMachineReport, openRepository } from "../lib/actions.svelte";
+  import { app } from "../lib/state.svelte";
   import { Monitor } from "@lucide/svelte";
 
   const snapshot = $derived(app.snapshot);
@@ -11,7 +11,7 @@
     class="version"
     type="button"
     title="{app.info.name} {app.info.version} — open the project page"
-    onclick={() => run("open_repository")}
+    onclick={openRepository}
   >
     v{app.info.version}
   </button>

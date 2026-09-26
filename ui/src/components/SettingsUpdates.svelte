@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { checkForUpdate } from "../lib/actions.svelte";
-  import { app, run } from "../lib/state.svelte";
+  import { checkForUpdate, openRepository } from "../lib/actions.svelte";
+  import { app } from "../lib/state.svelte";
   import { Download, ExternalLink, RefreshCw } from "@lucide/svelte";
 </script>
 
@@ -45,7 +45,7 @@
           <Download size={14} /> Download update
         </button>
       {/if}
-      <button class="button" type="button" onclick={() => run("open_repository")}>
+      <button class="button" type="button" onclick={openRepository}>
         <ExternalLink size={14} /> Project page
       </button>
     </div>

@@ -3,10 +3,26 @@
 import { strong } from "./api";
 import { askConfirm } from "./dialogs.svelte";
 import { accountById, app, run, showToast } from "./state.svelte";
-import { invoke } from "./tauri";
+import { invoke, invokePlugin } from "./tauri";
 import type { Report } from "./types";
 
 /* ------------------------------------------------------------------ switch */
+
+/** Project page, used by the header logo, the footer and the settings panel.
+ *  It is opened through the opener plugin command, which the plugin registers
+ *  itself, rather than an application command. `app.info.repository` comes
+ *  from `app_info`, the literal is only the fallback for the first moments of
+ *  a session. */
+const FALLBACK_REPOSITORY_URL = "https://github.com/SunkwiBOT/steam-account-switcher";
+
+export async function openRepository(): Promise<void> {
+  const url = app.info.repository || FALLBACK_REPOSITORY_URL;
+  try {
+    await invokePlugin("plugin:opener|open_url", { url, with: null });
+  } catch (error) {
+    showToast(String(error));
+  }
+}
 
 export async function switchAccount(steamId: string): Promise<void> {
   const entry = accountById(steamId);
