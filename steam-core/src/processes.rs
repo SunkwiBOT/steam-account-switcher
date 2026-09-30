@@ -1,5 +1,7 @@
 //! Steam process supervision: detect, stop and start the client.
 
+use std::ffi::OsStr;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
@@ -218,6 +220,94 @@ fn detach(command: &mut Command) {
     command.creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS);
 }
 
+/// Variables the AppImage launcher exports for its own bundled GTK stack.
+///
+/// A process hands its environment to everything it starts, so a Steam client
+/// started while this application runs from an AppImage would give its games
+/// paths inside `/tmp/.mount_*`. The Steam Linux Runtime then fails to start
+/// (the AppImage's libraries and GIO modules break the host Python its launch
+/// scripts run on), and only a Steam started from the desktop menu works.
+const APPIMAGE_VARIABLES: [&str; 19] = [
+    "APPDIR",
+    "APPIMAGE",
+    "ARGV0",
+    "OWD",
+    "GDK_BACKEND",
+    "GDK_PIXBUF_MODULE_FILE",
+    "GDK_PIXBUF_MODULEDIR",
+    "GI_TYPELIB_PATH",
+    "GIO_EXTRA_MODULES",
+    "GIO_MODULE_DIR",
+    "GSETTINGS_SCHEMA_DIR",
+    "GTK_DATA_PREFIX",
+    "GTK_EXE_PREFIX",
+    "GTK_IM_MODULE_FILE",
+    "GTK_PATH",
+    "GTK_THEME",
+    "PERLLIB",
+    "PYTHONHOME",
+    "PYTHONPATH",
+];
+
+/// Path list variables the AppImage prepends its own mount point to.
+const APPIMAGE_PATH_VARIABLES: [&str; 3] = ["LD_LIBRARY_PATH", "PATH", "XDG_DATA_DIRS"];
+
+/// True when this application was started from an AppImage.
+fn running_from_appimage() -> bool {
+    std::env::var_os("APPDIR").is_some() || std::env::var_os("APPIMAGE").is_some()
+}
+
+/// Directory the AppImage is mounted in, when the launcher tells us.
+fn appimage_mount() -> Option<PathBuf> {
+    std::env::var_os("APPDIR")
+        .or_else(|| std::env::var_os("APPIMAGE"))
+        .map(PathBuf::from)
+}
+
+/// Whether one entry of a path list points inside the AppImage.
+///
+/// The mount point carries a random suffix, so a stale `APPDIR` is not enough:
+/// anything under `/tmp/.mount_` is an AppImage path as well.
+fn belongs_to_appimage(entry: &Path, mount: Option<&Path>) -> bool {
+    entry.to_string_lossy().starts_with("/tmp/.mount_")
+        || mount.is_some_and(|mount| entry.starts_with(mount))
+}
+
+/// Entries of a path list that do not belong to the AppImage.
+fn without_appimage_paths(value: &OsStr, mount: Option<&Path>) -> Vec<PathBuf> {
+    std::env::split_paths(value)
+        .filter(|entry| !belongs_to_appimage(entry, mount))
+        .collect()
+}
+
+/// Removes the AppImage launcher environment from a command.
+///
+/// Only an AppImage needs this: a plain build runs with the user's own
+/// environment, which is exactly what a menu launch gives Steam.
+fn strip_appimage_environment(command: &mut Command) {
+    if !running_from_appimage() {
+        return;
+    }
+
+    let mount = appimage_mount();
+    for name in APPIMAGE_VARIABLES {
+        command.env_remove(name);
+    }
+
+    for name in APPIMAGE_PATH_VARIABLES {
+        let Some(value) = std::env::var_os(name) else {
+            continue;
+        };
+
+        let kept = without_appimage_paths(&value, mount.as_deref());
+        if kept.is_empty() {
+            command.env_remove(name);
+        } else if let Ok(filtered) = std::env::join_paths(&kept) {
+            command.env(name, filtered);
+        }
+    }
+}
+
 fn run_detached(command: &[String]) -> Result<()> {
     run_detached_process(command).map(|_| ())
 }
@@ -234,6 +324,7 @@ fn run_detached_process(command: &[String]) -> Result<Child> {
         .stdout(Stdio::null())
         .stderr(Stdio::null());
     detach(&mut process);
+    strip_appimage_environment(&mut process);
 
     process
         .spawn()
@@ -466,5 +557,33 @@ mod tests {
             facts.start_time.is_some(),
             "the process must have a start time"
         );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn appimage_paths_stay_out_of_child_environments() {
+        let mount = PathBuf::from("/tmp/.mount_Steam.dBMkPE");
+
+        assert!(belongs_to_appimage(
+            Path::new("/tmp/.mount_Steam.dBMkPE/usr/lib/x86_64-linux-gnu"),
+            Some(&mount)
+        ));
+        // The mount suffix is random, so an unknown APPDIR must not defeat the
+        // filter: anything under the AppImage mount roots counts as well.
+        assert!(belongs_to_appimage(
+            Path::new("/tmp/.mount_Other123/usr/lib"),
+            None
+        ));
+        assert!(!belongs_to_appimage(Path::new("/usr/lib"), Some(&mount)));
+
+        let value =
+            OsStr::new("/tmp/.mount_Steam.dBMkPE/usr/lib:/usr/lib:/tmp/.mount_Steam.dBMkPE/lib64");
+        assert_eq!(
+            without_appimage_paths(value, Some(&mount)),
+            vec![PathBuf::from("/usr/lib")]
+        );
+
+        let only_image = OsStr::new("/tmp/.mount_Steam.dBMkPE/lib");
+        assert!(without_appimage_paths(only_image, Some(&mount)).is_empty());
     }
 }
