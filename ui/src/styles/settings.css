@@ -1,0 +1,81 @@
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  /* Flex children would otherwise shrink to nothing inside the dialog. */
+  flex: 0 0 auto;
+  gap: 4px;
+  max-height: 190px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--base);
+  padding: 6px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 3px;
+}
+
+.settings-row:hover {
+  background: #16202c;
+}
+
+.settings-row.hidden-entry .settings-label {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.settings-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+}
+
+.tag.custom {
+  border-color: var(--primary-border);
+  color: var(--green);
+}
+
+.tag.hidden {
+  border-color: #9f6b1f;
+  color: #ffd9a0;
+}
+
+.settings-row button {
+  min-height: 24px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+.settings-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.settings-add .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settings-path {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  word-break: break-all;
+}

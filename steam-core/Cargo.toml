@@ -13,5 +13,32 @@ serde_json = { workspace = true }
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 time = { version = "0.3", default-features = false, features = ["local-offset", "formatting", "parsing", "macros"] }
 
+# Steam Guard authenticator: mobile confirmations, 2FA codes and account
+# linking. The library crate is MIT/Apache-2.0, only the CLI next to it is
+# GPL, so it can be linked from this MIT project.
+steamguard = "0.18"
+reqwest = { version = "0.12", default-features = false, features = [
+	"blocking",
+	"json",
+	"cookies",
+	"gzip",
+	"rustls-tls",
+] }
+base64 = "0.22"
+aes-gcm = "0.10"
+argon2 = "0.5"
+# Legacy Steam Desktop Authenticator maFiles are AES-256-CBC with a
+# PBKDF2-HMAC-SHA1 key, so importing them needs those primitives too.
+aes = "0.8"
+cbc = { version = "0.1", features = ["alloc"] }
+sha1 = "0.10"
+pbkdf2 = "0.12"
+thiserror = "2"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+zeroize = "1"
+anyhow = "1"
+protobuf = "3.7"
+rusqlite = { version = "0.40", features = ["bundled"] }
+
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"

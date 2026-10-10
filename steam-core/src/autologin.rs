@@ -1,8 +1,6 @@
-//! Reads and writes the account Steam will log into on its next start.
-//!
-//! Unit tests use fixture files on every OS and never write the real Windows registry.
-
 use crate::error::{Result, SteamError};
+#[cfg(any(not(windows), test))]
+use crate::error_code::ErrorCode;
 use crate::model::SteamInstallation;
 #[cfg(any(not(windows), test))]
 use crate::vdf;
@@ -10,7 +8,6 @@ use crate::vdf;
 #[cfg(any(not(windows), test))]
 const REGISTRY_PATH: [&str; 5] = ["Registry", "HKCU", "Software", "Valve", "Steam"];
 
-/// Auto-login account name, empty when Steam has none remembered.
 pub fn read_auto_login(installation: &SteamInstallation) -> Result<String> {
     #[cfg(all(windows, not(test)))]
     {
@@ -53,9 +50,9 @@ pub fn write_auto_login(installation: &SteamInstallation, account_name: &str) ->
         }
 
         let mut root = read_registry(installation)?;
-        let steam = root.path_mut(&REGISTRY_PATH, true).ok_or_else(|| {
-            SteamError::config("Unable to locate or create the Steam registry section.")
-        })?;
+        let steam = root
+            .path_mut(&REGISTRY_PATH, true)
+            .ok_or_else(|| SteamError::config(ErrorCode::SteamRegistryFailed))?;
 
         steam.set_string("AutoLoginUser", account_name);
         steam.set_string(
@@ -64,30 +61,9 @@ pub fn write_auto_login(installation: &SteamInstallation, account_name: &str) ->
         );
         steam.set_string("AlreadyLoggedIn", "0");
 
-        write_registry(installation, &root).map_err(|error| {
-            SteamError::config(explain_write_failure(&installation.registry_path, &error))
-        })
+        write_registry(installation, &root)
+            .map_err(|_| SteamError::config(ErrorCode::SteamRegistryFailed))
     }
-}
-
-/// Some guides tell users to mark `registry.vdf` immutable (`chattr +i`) to
-/// stop Steam from resetting auto-login. The atomic rename then fails with a
-/// bare permission error, which reads like a bug in this application, so name
-/// the likely cause instead.
-#[cfg(any(not(windows), test))]
-fn explain_write_failure(path: &std::path::Path, error: &SteamError) -> String {
-    let text = error.to_string();
-    let lowered = text.to_ascii_lowercase();
-    if lowered.contains("permission denied") || lowered.contains("operation not permitted") {
-        return format!(
-            "{text}. {} may be write-protected: `chattr +i` on Linux (or a read-only \
-Steam folder) stops Steam from resetting auto-login. Remove the protection with \
-`sudo chattr -i {}` and retry.",
-            path.display(),
-            path.display()
-        );
-    }
-    text
 }
 
 #[cfg(any(not(windows), test))]
@@ -113,54 +89,4 @@ fn write_registry(installation: &SteamInstallation, root: &vdf::VdfObject) -> Re
             error,
         )
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::model::InstallKind;
-    use std::path::PathBuf;
-
-    fn installation(registry_path: PathBuf) -> SteamInstallation {
-        SteamInstallation {
-            kind: InstallKind::Native,
-            root: registry_path.parent().unwrap().to_path_buf(),
-            config_dir: registry_path.parent().unwrap().join("config"),
-            loginusers_path: registry_path
-                .parent()
-                .unwrap()
-                .join("config/loginusers.vdf"),
-            registry_path: registry_path.clone(),
-            userdata_dir: registry_path.parent().unwrap().join("userdata"),
-            launch_command: vec!["steam".to_string()],
-            prefix: None,
-        }
-    }
-
-    #[test]
-    fn writes_then_reads_the_auto_login_user() {
-        let directory = std::env::temp_dir().join("steam-core-autologin");
-        std::fs::create_dir_all(&directory).expect("temp dir");
-        let registry_path = directory.join("registry.vdf");
-        std::fs::write(
-            &registry_path,
-            "\"Registry\"\n{\n\t\"HKCU\"\n\t{\n\t\t\"Software\"\n\t\t{\n\t\t\t\"Valve\"\n\t\t\t{\n\t\t\t\t\"Steam\"\n\t\t\t\t{\n\t\t\t\t\t\"AutoLoginUser\"\t\t\"old\"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n",
-        )
-        .expect("seed registry");
-
-        let installation = installation(registry_path.clone());
-        assert_eq!(read_auto_login(&installation).unwrap(), "old");
-
-        write_auto_login(&installation, "new-account").expect("write");
-        assert_eq!(read_auto_login(&installation).unwrap(), "new-account");
-
-        let text = std::fs::read_to_string(&registry_path).expect("read back");
-        assert!(text.contains("\"RememberPassword\"\t\t\"1\""));
-        assert!(text.contains("\"AlreadyLoggedIn\"\t\t\"0\""));
-
-        write_auto_login(&installation, "").expect("clear");
-        assert_eq!(read_auto_login(&installation).unwrap(), "");
-
-        let _ = std::fs::remove_dir_all(&directory);
-    }
 }

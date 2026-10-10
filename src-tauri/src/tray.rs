@@ -1,5 +1,3 @@
-//! System tray icon and menu.
-
 use std::sync::Mutex;
 use tauri::menu::{Menu, MenuBuilder, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -45,12 +43,25 @@ pub fn install(app: &AppHandle) -> tauri::Result<bool> {
 }
 
 fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let locale = app
+        .state::<AppState>()
+        .lock()
+        .settings
+        .data()
+        .language
+        .resolved();
     MenuBuilder::new(app)
-        .item(&MenuItem::with_id(app, "open", "Open", true, None::<&str>)?)
+        .item(&MenuItem::with_id(
+            app,
+            "open",
+            rust_i18n::t!("tray_open", locale = locale),
+            true,
+            None::<&str>,
+        )?)
         .item(&MenuItem::with_id(
             app,
             "refresh",
-            "Refresh",
+            rust_i18n::t!("tray_refresh", locale = locale),
             true,
             None::<&str>,
         )?)
@@ -58,17 +69,31 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         .item(&MenuItem::with_id(
             app,
             "empty",
-            "No accounts",
+            rust_i18n::t!("tray_no_accounts", locale = locale),
             false,
             None::<&str>,
         )?)
         .separator()
-        .item(&MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?)
+        .item(&MenuItem::with_id(
+            app,
+            "quit",
+            rust_i18n::t!("tray_quit", locale = locale),
+            true,
+            None::<&str>,
+        )?)
         .build()
 }
 
-/// Rebuilds the account entries inside the existing tray menu.
+/// Queues the menu update on the main thread instead of waiting for it: each
+/// menu call blocks until the main thread runs it, so a caller that holds a
+/// lock (the playtime thread, or a command holding AppState) would deadlock
+/// against a main-thread handler that is waiting for the same lock.
 pub fn refresh_menu(app: &AppHandle) {
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || update_menu(&handle));
+}
+
+fn update_menu(app: &AppHandle) {
     let Some(holder) = app.try_state::<TrayMenu>() else {
         return;
     };
@@ -78,13 +103,30 @@ pub fn refresh_menu(app: &AppHandle) {
     let Some(menu) = guard.as_ref() else {
         return;
     };
+    let locale = app
+        .state::<AppState>()
+        .lock()
+        .settings
+        .data()
+        .language
+        .resolved();
     let Ok(items) = menu.items() else {
         return;
     };
 
-    // Drop previous account entries and the "No accounts" placeholder.
     for (index, item) in items.iter().enumerate().rev() {
         let id = item.id().as_ref().to_string();
+        if let tauri::menu::MenuItemKind::MenuItem(item) = item {
+            let key = match id.as_str() {
+                "open" => Some("tray_open"),
+                "refresh" => Some("tray_refresh"),
+                "quit" => Some("tray_quit"),
+                _ => None,
+            };
+            if let Some(key) = key {
+                let _ = item.set_text(rust_i18n::t!(key, locale = locale));
+            }
+        }
         if id.starts_with(ACCOUNT_PREFIX) || id == "empty" {
             let _ = menu.remove_at(index);
         }
@@ -102,16 +144,22 @@ pub fn refresh_menu(app: &AppHandle) {
 
     let mut position = 3; // after Open, Refresh and the first separator
     if accounts.is_empty() {
-        if let Ok(item) = MenuItem::with_id(app, "empty", "No accounts", false, None::<&str>) {
+        if let Ok(item) = MenuItem::with_id(
+            app,
+            "empty",
+            rust_i18n::t!("tray_no_accounts", locale = locale),
+            false,
+            None::<&str>,
+        ) {
             let _ = menu.insert(&item, position);
         }
         return;
     }
 
     for (index, account) in accounts.iter().enumerate() {
-        let label = account_label(account, index + 1, masked);
+        let label = account_label(account, index + 1, masked, locale);
         let id = format!("{ACCOUNT_PREFIX}{}", account.steam_id);
-        let is_current = account.account_name.eq_ignore_ascii_case(&auto_login_user);
+        let is_current = is_current_account(account, &auto_login_user);
 
         let Ok(item) =
             tauri::menu::CheckMenuItem::with_id(app, id, label, true, is_current, None::<&str>)
@@ -125,12 +173,23 @@ pub fn refresh_menu(app: &AppHandle) {
     }
 }
 
-fn account_label(account: &steam_core::SteamAccount, index: usize, masked: bool) -> String {
+/// An account without a login name never matches: an empty AutoLoginUser would
+/// otherwise mark every such entry as the current one.
+fn is_current_account(account: &steam_core::SteamAccount, auto_login_user: &str) -> bool {
+    !account.account_name.is_empty() && account.account_name.eq_ignore_ascii_case(auto_login_user)
+}
+
+fn account_label(
+    account: &steam_core::SteamAccount,
+    index: usize,
+    masked: bool,
+    locale: &str,
+) -> String {
     if masked {
         return if !account.persona_name.is_empty() && account.persona_name != account.account_name {
             account.persona_name.clone()
         } else {
-            format!("Account {index}")
+            rust_i18n::t!("tray_account", locale = locale, index = index).to_string()
         };
     }
 

@@ -1,18 +1,13 @@
-//! Error type shared by the whole core crate.
-
+use crate::error_code::ErrorCode;
 use std::fmt;
 use std::io;
 
 #[derive(Debug)]
 pub enum SteamError {
-    /// No supported Steam installation could be detected.
     NotFound(String),
-    /// A KeyValues file could not be parsed.
     Vdf { path: String, message: String },
-    /// Filesystem failure, with the operation that failed.
     Io { context: String, source: io::Error },
-    /// Anything else Steam related (bad state, refusing a dangerous write).
-    Config(String),
+    Config(ErrorCode),
 }
 
 impl SteamError {
@@ -23,21 +18,23 @@ impl SteamError {
         }
     }
 
-    pub fn config(message: impl Into<String>) -> Self {
-        SteamError::Config(message.into())
+    pub fn config(message: ErrorCode) -> Self {
+        SteamError::Config(message)
     }
 }
 
 impl fmt::Display for SteamError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            SteamError::NotFound(message) => write!(formatter, "{message}"),
-            SteamError::Vdf { path, message } => {
-                write!(formatter, "Unable to parse {path}: {message}")
+        let code = match self {
+            SteamError::NotFound(_) => ErrorCode::NoSteamInstallation,
+            SteamError::Vdf { .. } => ErrorCode::InvalidSteamFile,
+            SteamError::Io { source, .. } if source.kind() == io::ErrorKind::PermissionDenied => {
+                ErrorCode::FilePermission
             }
-            SteamError::Io { context, source } => write!(formatter, "{context}: {source}"),
-            SteamError::Config(message) => write!(formatter, "{message}"),
-        }
+            SteamError::Io { .. } => ErrorCode::IoError,
+            SteamError::Config(code) => *code,
+        };
+        formatter.write_str(code.as_str())
     }
 }
 

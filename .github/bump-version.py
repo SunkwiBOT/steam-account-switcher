@@ -91,7 +91,6 @@ def write_version(version: str) -> list[str]:
         TAURI_CONF.write_text(updated_conf, encoding="utf-8")
         changed.append(str(TAURI_CONF.relative_to(APP_DIR)))
 
-    # The workspace manifest carries the version for every crate.
     cargo_text = WORKSPACE_CARGO.read_text(encoding="utf-8")
     updated_cargo, count = re.subn(
         r'(^\[workspace\.package\][\s\S]*?^version = )"[^"]*"',
@@ -104,7 +103,6 @@ def write_version(version: str) -> list[str]:
         WORKSPACE_CARGO.write_text(updated_cargo, encoding="utf-8")
         changed.append(str(WORKSPACE_CARGO.relative_to(APP_DIR)))
 
-    # Cargo.lock repeats it for each of our own packages.
     lock_text = CARGO_LOCK.read_text(encoding="utf-8")
     updated_lock = lock_text
     for package in PACKAGES:

@@ -1,0 +1,293 @@
+.steamguard-dialog {
+  width: min(640px, 94vw);
+}
+
+.steamguard-card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 10px;
+  padding: 12px 13px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.steamguard-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.revocation-fact {
+  align-self: flex-start;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.steamguard-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.steamguard-note code {
+  color: var(--text-strong);
+}
+
+.steamguard-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.steamguard-row .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.steamguard-row:has(.steamguard-field) {
+  align-items: flex-start;
+}
+
+.steamguard-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-error {
+  margin: 0;
+  align-items: flex-start;
+}
+
+.form-error > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.steamguard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.steamguard-error,
+.steamguard-warning {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 4px;
+  padding: 8px 10px;
+  border-radius: 4px;
+}
+
+.steamguard-error {
+  color: #ffb8af;
+  background: #321b1b;
+  border: 1px solid #8a3c34;
+}
+
+.steamguard-warning {
+  color: #ffd479;
+  background: #33280f;
+  border: 1px solid #7a5c1e;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.steamguard-code {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.steamguard-code-value {
+  font-family: ui-monospace, "SFMono-Regular", "DejaVu Sans Mono", monospace;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: var(--text-strong);
+}
+
+.steamguard-code.paused .steamguard-code-value {
+  filter: blur(6px);
+  user-select: none;
+}
+
+.steamguard-timer.paused {
+  opacity: 0.35;
+}
+
+.vault-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.vault-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.vault-modal {
+  z-index: 45;
+}
+
+.steamguard-timer {
+  height: 4px;
+  overflow: hidden;
+  background: var(--grid);
+  border-radius: 2px;
+}
+
+.steamguard-timer span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 1s linear;
+}
+
+.steamguard-qr {
+  align-self: center;
+  padding: 10px;
+  background: #ffffff;
+  border-radius: 6px;
+}
+
+.steamguard-qr svg {
+  display: block;
+  width: 232px;
+  height: 232px;
+}
+
+.confirmation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.confirmation-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--base-alt);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.confirmation-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.confirmation-kind {
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.confirmation-headline {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.confirmation-summary {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: pre-line;
+}
+
+.confirmation-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.vault-path {
+  margin-top: 14px;
+  min-width: 0;
+}
+
+.vault-path-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vault-path-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.dialog.vault-password-dialog {
+  height: fit-content;
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  color: var(--text);
+}
+
+.vault-password-dialog:not([open]) {
+  display: none;
+}
+
+.vault-password-dialog::backdrop {
+  background: rgba(8, 12, 18, 0.72);
+}
+
+.vault-password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vault-field-error {
+  margin-top: 8px;
+}
+
+.confirmation-session {
+  font-size: 12px;
+}
+
+.confirmation-session summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.confirmation-session summary::-webkit-details-marker {
+  display: none;
+}
+
+.confirmation-session summary svg:last-child {
+  margin-left: auto;
+}
+
+.confirmation-session[open] summary {
+  color: var(--text-strong);
+  margin-bottom: 8px;
+}
+
+.confirmation-session .button {
+  margin-top: 8px;
+}
+.steamguard-dialog .account-caption {
+  color: var(--text-strong);
+}

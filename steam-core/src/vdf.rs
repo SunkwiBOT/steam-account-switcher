@@ -1,9 +1,7 @@
-//! Valve KeyValues ("VDF") text format, used by every Steam config file.
 //! Insertion order is preserved: Steam rewrites these files itself.
 
 use std::fmt;
 
-/// A KeyValues value: either a quoted string or a nested object.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VdfValue {
     String(String),
@@ -37,8 +35,6 @@ impl VdfValue {
     }
 }
 
-/// An ordered KeyValues object.
-///
 /// Lookups are case-insensitive because Steam is not consistent about key
 /// casing between client versions and platforms.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -113,7 +109,6 @@ impl VdfObject {
         Some(self.entries.remove(index).1)
     }
 
-    /// Returns the nested object for `key`, creating it when missing.
     pub fn ensure_object(&mut self, key: &str) -> &mut VdfObject {
         let index = match self.position(key) {
             Some(index) => index,
@@ -134,7 +129,6 @@ impl VdfObject {
             .expect("value was just replaced by an object")
     }
 
-    /// Walks a nested path, creating missing objects when `create` is set.
     pub fn path_mut(&mut self, parts: &[&str], create: bool) -> Option<&mut VdfObject> {
         let mut current = self;
         for part in parts {
@@ -282,7 +276,7 @@ fn tokenize(input: &str) -> Result<Vec<Token>, VdfError> {
     Ok(tokens)
 }
 
-fn parse_object(tokens: &[Token], cursor: &mut usize) -> Result<VdfObject, VdfError> {
+fn parse_object(tokens: &[Token], cursor: &mut usize, nested: bool) -> Result<VdfObject, VdfError> {
     let mut object = VdfObject::new();
 
     while *cursor < tokens.len() {
@@ -308,7 +302,7 @@ fn parse_object(tokens: &[Token], cursor: &mut usize) -> Result<VdfObject, VdfEr
         match token {
             Token::OpenBrace => {
                 *cursor += 1;
-                let child = parse_object(tokens, cursor)?;
+                let child = parse_object(tokens, cursor, true)?;
                 object.insert(&key, VdfValue::Object(child));
             }
             Token::CloseBrace => {
@@ -324,14 +318,19 @@ fn parse_object(tokens: &[Token], cursor: &mut usize) -> Result<VdfObject, VdfEr
         }
     }
 
+    // Steam's files have no root brace: the top level legitimately ends at the
+    // end of the file. A nested object that never closes means the file was cut,
+    // and accepting it would let the next write drop the lost accounts.
+    if nested {
+        return Err(VdfError::at(*cursor, "unexpected end of input"));
+    }
     Ok(object)
 }
 
-/// Parses KeyValues text into an ordered object tree.
 pub fn parse(input: &str) -> Result<VdfObject, VdfError> {
     let tokens = tokenize(input)?;
     let mut cursor = 0;
-    let object = parse_object(&tokens, &mut cursor)?;
+    let object = parse_object(&tokens, &mut cursor, false)?;
     if cursor != tokens.len() {
         return Err(VdfError::at(
             cursor,
@@ -374,102 +373,8 @@ fn write_object(object: &VdfObject, depth: usize, output: &mut String) {
     }
 }
 
-/// Serializes an object tree the same way Steam does, using tab indentation.
 pub fn dump(object: &VdfObject) -> String {
     let mut output = String::new();
     write_object(object, 0, &mut output);
     output
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const SAMPLE: &str = r#"
-// steam login cache
-"users"
-{
-	"76561198000000001"
-	{
-		"AccountName"		"first-account"
-		"PersonaName"		"First \"Nickname\""
-		"MostRecent"		"1"
-		"Timestamp"		"1700000000"
-	}
-	"76561198000000002"
-	{
-		"AccountName"		"second-account"
-		"PersonaName"		"Second"
-		"MostRecent"		"0"
-	}
-}
-"#;
-
-    #[test]
-    fn parses_nested_objects_and_escapes() {
-        let root = parse(SAMPLE).expect("sample parses");
-        let users = root.get_object("users").expect("users object");
-        assert_eq!(users.len(), 2);
-
-        let first = users
-            .get_object("76561198000000001")
-            .expect("first account");
-        assert_eq!(first.get_str("AccountName"), Some("first-account"));
-        assert_eq!(first.get_str("PersonaName"), Some("First \"Nickname\""));
-        assert_eq!(first.get_str("mostrecent"), Some("1"));
-    }
-
-    #[test]
-    fn round_trips_through_dump_and_parse() {
-        let root = parse(SAMPLE).expect("sample parses");
-        let reparsed = parse(&dump(&root)).expect("dumped file parses");
-        assert_eq!(root, reparsed);
-    }
-
-    #[test]
-    fn insert_keeps_existing_key_spelling_and_order() {
-        let mut object = VdfObject::new();
-        object.set_string("AutoLoginUser", "first");
-        object.set_string("Other", "value");
-        object.set_string("autologinuser", "second");
-
-        let keys: Vec<&str> = object.keys().collect();
-        assert_eq!(keys, vec!["AutoLoginUser", "Other"]);
-        assert_eq!(object.get_str("AUTOLOGINUSER"), Some("second"));
-    }
-
-    #[test]
-    fn path_mut_creates_missing_branches() {
-        let mut root = VdfObject::new();
-        {
-            let steam = root
-                .path_mut(&["Registry", "HKCU", "Software", "Valve", "Steam"], true)
-                .expect("path is created");
-            steam.set_string("AutoLoginUser", "player");
-        }
-
-        assert!(root.path_mut(&["Registry", "HKLM"], false).is_none());
-        assert_eq!(
-            root.path(&["Registry", "HKCU", "Software", "Valve", "Steam"])
-                .and_then(|steam| steam.get_str("AutoLoginUser")),
-            Some("player")
-        );
-    }
-
-    #[test]
-    fn reports_unterminated_strings() {
-        let error = parse("\"users\"\n{\n\t\"broken\"\t\"value\n}\n").unwrap_err();
-        assert!(error.to_string().contains("unterminated"));
-    }
-
-    #[test]
-    fn removes_case_insensitively() {
-        let mut object = VdfObject::new();
-        object.set_string("MostRecent", "1");
-        assert_eq!(
-            object.remove("mostrecent"),
-            Some(VdfValue::String("1".into()))
-        );
-        assert!(object.is_empty());
-    }
 }

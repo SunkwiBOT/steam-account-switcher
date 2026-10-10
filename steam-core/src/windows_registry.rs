@@ -1,5 +1,3 @@
-//! Windows registry access.
-//!
 //! Unlike Linux, the Windows Steam client does not write a `registry.vdf`
 //! mirror: the auto-login account lives in `HKCU\Software\Valve\Steam`.
 
@@ -15,7 +13,6 @@ fn current_user_key() -> io::Result<RegKey> {
     RegKey::predef(HKEY_CURRENT_USER).open_subkey_with_flags(STEAM_KEY, KEY_READ)
 }
 
-/// `HKCU\Software\Valve\Steam\SteamPath`, written by the Steam installer.
 pub fn steam_path() -> Option<PathBuf> {
     let key = current_user_key().ok()?;
     let value: String = key.get_value("SteamPath").ok()?;
@@ -41,13 +38,11 @@ pub fn steam_install_path() -> Option<PathBuf> {
     path.is_dir().then_some(path)
 }
 
-/// Currently remembered auto-login account name.
 pub fn read_auto_login() -> Option<String> {
     let key = current_user_key().ok()?;
     key.get_value::<String, _>("AutoLoginUser").ok()
 }
 
-/// Writes the account Steam should log into on its next start.
 pub fn write_auto_login(account_name: &str) -> io::Result<()> {
     let key = RegKey::predef(HKEY_CURRENT_USER).open_subkey_with_flags(STEAM_KEY, KEY_WRITE)?;
     key.set_value("AutoLoginUser", &account_name.to_string())?;

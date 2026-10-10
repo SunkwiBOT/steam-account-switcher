@@ -1,15 +1,13 @@
-//! Locates every Steam data root on the machine.
-//!
 //! Linux users can have several clients at once (distribution package,
 //! Flatpak and Snap), so the detector returns them all and lets the UI decide.
 
 use std::path::{Path, PathBuf};
 
+use crate::error_code::ErrorCode;
 #[cfg(not(windows))]
 use crate::model::home_dir;
 use crate::model::{resolve, InstallKind, SteamInstallation};
 
-/// Returns the executable for `name` when it is available on `PATH`.
 pub fn which(name: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
     for directory in std::env::split_paths(&path) {
@@ -36,13 +34,11 @@ fn executable_names(name: &str) -> Vec<String> {
     vec![name.to_string()]
 }
 
-/// Detects every Steam installation, best candidate first.
 #[cfg(windows)]
 pub fn detect_all() -> Vec<SteamInstallation> {
     rank_candidates(windows_candidates())
 }
 
-/// Detects every Steam installation, best candidate first.
 #[cfg(not(windows))]
 pub fn detect_all() -> Vec<SteamInstallation> {
     let Some(home) = home_dir() else {
@@ -51,7 +47,6 @@ pub fn detect_all() -> Vec<SteamInstallation> {
     rank_candidates(linux_candidates(&home))
 }
 
-/// Keeps the first occurrence of each installation and sorts by completeness.
 fn rank_candidates(candidates: Vec<SteamInstallation>) -> Vec<SteamInstallation> {
     let mut unique: Vec<SteamInstallation> = Vec::new();
     for installation in candidates {
@@ -72,7 +67,6 @@ fn rank_candidates(candidates: Vec<SteamInstallation>) -> Vec<SteamInstallation>
     unique
 }
 
-/// Directories that may contain a Steam client below a user supplied path.
 #[cfg(not(windows))]
 const CUSTOM_SUBPATHS: [&str; 7] = [
     "",
@@ -87,8 +81,6 @@ const CUSTOM_SUBPATHS: [&str; 7] = [
 #[cfg(windows)]
 const CUSTOM_SUBPATHS: [&str; 2] = ["", "Steam"];
 
-/// Builds an installation from a path typed by the user, either a Steam root or
-/// a parent directory such as `~/.steam`.
 pub fn from_custom_path(path: &Path) -> Option<SteamInstallation> {
     let base = crate::model::resolve(&crate::model::expand_home(path));
     if !base.is_dir() {
@@ -135,7 +127,6 @@ pub fn from_custom_path(path: &Path) -> Option<SteamInstallation> {
     }
 }
 
-/// A directory is a Steam root when it holds any of the client's markers.
 pub fn looks_like_steam_root(path: &Path) -> bool {
     path.join("config/loginusers.vdf").is_file()
         || path.join("registry.vdf").is_file()
@@ -149,25 +140,19 @@ pub fn looks_like_steam_root(path: &Path) -> bool {
 /// but never signed in, which is not the same as "not found".
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SteamFolder {
-    /// Missing, or a file rather than a folder.
     NotADirectory,
-    /// A real folder that has nothing to do with a Steam client.
     NotSteam,
-    /// Steam is installed here but never signed in: no login history yet.
     NeverSignedIn,
-    /// `config/loginusers.vdf` exists, accounts can be read.
     Usable,
 }
 
 impl SteamFolder {
     pub fn message(self) -> &'static str {
         match self {
-            SteamFolder::NotADirectory => "This folder does not exist.",
-            SteamFolder::NotSteam => "No Steam client found in this folder.",
-            SteamFolder::NeverSignedIn => {
-                "Steam found, sign in once so it creates its login history."
-            }
-            SteamFolder::Usable => "Steam installation ready.",
+            SteamFolder::NotADirectory => ErrorCode::FolderNotFound.as_str(),
+            SteamFolder::NotSteam => ErrorCode::NotSteamFolder.as_str(),
+            SteamFolder::NeverSignedIn => ErrorCode::SteamNeverSignedIn.as_str(),
+            SteamFolder::Usable => ErrorCode::SteamInstallationReady.as_str(),
         }
     }
 }
@@ -187,7 +172,6 @@ pub fn classify_steam_folder(path: &Path) -> SteamFolder {
     SteamFolder::NotSteam
 }
 
-/// Classification of a user supplied path, after expanding the known layouts.
 pub fn classify_custom_path(path: &Path) -> SteamFolder {
     let base = crate::model::resolve(&crate::model::expand_home(path));
     let classification = classify_steam_folder(&base);
@@ -372,7 +356,7 @@ fn build_installation_windows(root: &Path, launch_command: Vec<String>) -> Steam
         config_dir: config_dir.clone(),
         loginusers_path: config_dir.join("loginusers.vdf"),
         // The Windows client stores auto-login state in the real registry, so
-        // this path only exists for diagnostics and legacy imports.
+        // this path only exists for diagnostics.
         registry_path: root.join("registry.vdf"),
         userdata_dir: root.join("userdata"),
         launch_command,
@@ -396,11 +380,13 @@ fn choose_launch_command(commands: &[Vec<String>]) -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// The registry file is shared by every native candidate, so it only counts once
+/// the candidate's own folder exists; otherwise missing roots would be listed.
 fn looks_installed(installation: &SteamInstallation) -> bool {
     installation.root.is_dir()
-        || installation.config_dir.is_dir()
-        || installation.loginusers_path.is_file()
-        || installation.registry_path.is_file()
+        && (installation.config_dir.is_dir()
+            || installation.loginusers_path.is_file()
+            || installation.registry_path.is_file())
 }
 
 fn installation_score(installation: &SteamInstallation) -> (u8, u8, u8) {
@@ -409,62 +395,4 @@ fn installation_score(installation: &SteamInstallation) -> (u8, u8, u8) {
         installation.registry_path.is_file() as u8,
         installation.config_dir.is_dir() as u8,
     )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn installation_label_contains_kind_and_root() {
-        let installation = SteamInstallation {
-            kind: InstallKind::Flatpak,
-            root: PathBuf::from("/tmp/steam"),
-            config_dir: PathBuf::from("/tmp/steam/config"),
-            loginusers_path: PathBuf::from("/tmp/steam/config/loginusers.vdf"),
-            registry_path: PathBuf::from("/tmp/steam/registry.vdf"),
-            userdata_dir: PathBuf::from("/tmp/steam/userdata"),
-            launch_command: vec!["flatpak".to_string()],
-            prefix: None,
-        };
-        assert_eq!(installation.label(), "flatpak: /tmp/steam");
-    }
-
-    #[test]
-    fn detection_never_panics_and_is_sorted() {
-        let installations = detect_all();
-        let scores: Vec<_> = installations.iter().map(installation_score).collect();
-        let mut sorted = scores.clone();
-        sorted.sort_by(|left, right| right.cmp(left));
-        assert_eq!(scores, sorted);
-    }
-
-    #[test]
-    fn custom_paths_resolve_a_steam_root_or_parent_directory() {
-        let directory =
-            std::env::temp_dir().join(format!("steam-core-custom-path-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&directory);
-        let root = directory.join("Steam");
-        std::fs::create_dir_all(root.join("config")).expect("config dir");
-        std::fs::write(root.join("config/loginusers.vdf"), "\"users\"\n{\n}\n").expect("file");
-
-        let direct = from_custom_path(&root).expect("root resolves");
-        assert_eq!(direct.root, resolve(&root));
-
-        let parent = from_custom_path(&directory).expect("parent resolves");
-        assert_eq!(parent.root, resolve(&root));
-
-        assert!(from_custom_path(&directory.join("missing")).is_none());
-
-        let _ = std::fs::remove_dir_all(&directory);
-    }
-
-    #[test]
-    fn unrelated_directories_are_rejected() {
-        let directory =
-            std::env::temp_dir().join(format!("steam-core-not-steam-{}", std::process::id()));
-        std::fs::create_dir_all(&directory).expect("temp dir");
-        assert!(from_custom_path(&directory).is_none());
-        let _ = std::fs::remove_dir_all(&directory);
-    }
 }

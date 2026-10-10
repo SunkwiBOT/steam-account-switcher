@@ -1,0 +1,135 @@
+.content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 14px 10px;
+  gap: 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.data-table {
+  width: 100%;
+  /* `separate` keeps the sticky header painted over the scrolling rows; with
+     `collapse` WebKit lets rows draw above it. */
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--panel);
+  color: var(--accent);
+  font-weight: 700;
+  text-align: left;
+  padding: 8px 6px;
+  box-shadow:
+    inset -1px 0 0 var(--border),
+    inset 0 -1px 0 var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.data-table tbody td {
+  padding: 4px 6px;
+  box-shadow: inset 0 -1px 0 var(--grid);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.data-table tbody tr {
+  height: 48px;
+}
+
+.data-table tbody tr:nth-child(even) {
+  background: var(--base-alt);
+}
+
+.data-table tbody tr:hover {
+  background: #16202c;
+}
+
+.data-table tbody tr.selected td {
+  box-shadow:
+    inset 0 2px 0 var(--accent),
+    inset 0 -2px 0 var(--accent);
+}
+
+.data-table tbody tr.selected td:first-child {
+  box-shadow:
+    inset 0 2px 0 var(--accent),
+    inset 2px 0 0 var(--accent),
+    inset 0 -2px 0 var(--accent);
+}
+
+.data-table tbody tr.selected td:last-child {
+  box-shadow:
+    inset 0 2px 0 var(--accent),
+    inset -2px 0 0 var(--accent),
+    inset 0 -2px 0 var(--accent);
+}
+
+.account-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: var(--avatar);
+}
+
+.avatar.initial {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.rank-icon {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.empty-state {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 28px;
+  margin: 0;
+}
+
+.version {
+  padding: 2px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.version:hover {
+  background: var(--base-alt);
+  border-color: var(--border);
+  color: var(--text);
+}

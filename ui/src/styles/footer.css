@@ -1,0 +1,15 @@
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 10px;
+  border-top: 1px solid transparent;
+}
+
+.footer .playtime-total {
+  margin-left: auto;
+}
+
+.footer .playtime-total[hidden] {
+  display: none;
+}

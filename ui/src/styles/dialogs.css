@@ -1,0 +1,381 @@
+.modal[hidden] {
+  display: none;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 12, 18, 0.72);
+}
+
+.dialog {
+  position: relative;
+  width: min(1160px, 94vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 18px 14px;
+  background: var(--window);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+
+.dialog.small {
+  width: min(520px, 92vw);
+  height: auto;
+  overflow: auto;
+}
+
+.dialog.backup-dialog {
+  position: fixed;
+  inset: 0;
+  height: fit-content;
+  margin: auto;
+  color: var(--text);
+}
+
+.backup-dialog:not([open]) {
+  display: none;
+}
+
+.backup-dialog::backdrop {
+  background: rgba(8, 12, 18, 0.72);
+}
+
+.backup-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dialog.folder-editor {
+  position: fixed;
+  inset: 0;
+  width: min(680px, 94vw);
+  height: fit-content;
+  margin: auto;
+  color: var(--text);
+}
+
+.folder-editor:not([open]) {
+  display: none;
+}
+
+.folder-editor::backdrop {
+  background: rgba(8, 12, 18, 0.72);
+}
+
+.folder-editor-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.folder-editor-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.folder-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.folder-editor-field:first-child {
+  border-right: 1px solid var(--border);
+  padding-right: 16px;
+}
+
+.checkbox[hidden],
+.busy[hidden],
+.toast[hidden],
+.context-menu[hidden],
+.modal[hidden],
+.settings-list[hidden] {
+  display: none;
+}
+
+.dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dialog-title,
+.block-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text-strong);
+}
+
+.dialog-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  min-width: 0;
+  line-height: 1.3;
+  align-items: flex-start;
+}
+
+.dialog-title .action-icon {
+  margin-top: 4px;
+}
+
+.dialog-title-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dialog-head > .icon-button {
+  flex: 0 0 auto;
+}
+
+.dialog-subtitle {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dialog-subtitle .account-caption {
+  color: var(--text-strong);
+}
+
+.dialog-text {
+  color: var(--text);
+  margin: 4px 0 0;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--button);
+  color: #ffffff;
+}
+
+.icon-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.playtime-summary {
+  margin: 0;
+  padding: 4px 0;
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.playtime-stats {
+  margin: 0;
+  padding: 2px 0;
+  color: var(--text-strong);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.history-notice {
+  margin: 0;
+  padding: 7px 9px;
+  background: #182738;
+  border: 1px solid #29445a;
+  border-radius: 3px;
+  color: #aeb6bf;
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs button {
+  background: var(--base-alt);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  min-width: 96px;
+  padding: 8px 18px;
+}
+
+.tabs button:hover {
+  background: var(--panel);
+  color: #ffffff;
+}
+
+.tabs button.active {
+  background: var(--panel);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: var(--base);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  /* No top padding: the sticky table header has to sit flush with the scroll
+     port, otherwise rows scroll through the gap above it. */
+  padding: 0 10px 10px;
+}
+
+.dialog-body > .data-table {
+  margin-top: 10px;
+}
+
+.dialog-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.progress {
+  height: 8px;
+  margin: 14px 0 4px;
+  border-radius: 4px;
+  background: var(--base);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.progress-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  margin-top: 10px;
+}
+
+.checkbox input {
+  accent-color: var(--primary-border);
+}
+
+.chart {
+  width: 100%;
+  height: 220px;
+  display: block;
+  background: var(--base);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
+.chart-wrap {
+  position: relative;
+}
+
+.chart-tooltip {
+  position: absolute;
+  display: none;
+  z-index: 5;
+  padding: 4px 8px;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--text-strong);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 8px;
+}
+
+.range-group {
+  display: flex;
+}
+
+.range-group button {
+  background: var(--base-alt);
+  border: 1px solid var(--border-strong);
+  border-right-width: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 5px 12px;
+}
+
+.range-group button:first-child {
+  border-radius: 3px 0 0 3px;
+}
+
+.range-group button:last-child {
+  border-right-width: 1px;
+  border-radius: 0 3px 3px 0;
+}
+
+.range-group button:hover {
+  background: var(--panel);
+  color: #ffffff;
+}
+
+.range-group button.active {
+  background: var(--button);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 260px;
+  padding-top: 10px;
+}
+
+.tab-panel .data-table thead th {
+  background: var(--panel);
+}
+
+.empty-tab {
+  color: var(--muted);
+  text-align: center;
+  padding: 24px;
+}

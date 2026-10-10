@@ -1,0 +1,8 @@
+{
+  "_version": 1,
+  "tray_account": "Account %{index}",
+  "tray_no_accounts": "No accounts",
+  "tray_open": "Open",
+  "tray_quit": "Quit",
+  "tray_refresh": "Refresh"
+}

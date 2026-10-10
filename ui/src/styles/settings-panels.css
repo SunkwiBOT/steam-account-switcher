@@ -1,0 +1,115 @@
+.settings-dialog {
+  width: min(760px, 94vw);
+  height: min(560px, 86vh);
+}
+
+.settings-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px;
+  background: var(--base);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: auto;
+}
+
+.settings-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+.settings-tab:hover {
+  background: var(--button);
+  color: #ffffff;
+}
+
+.settings-tab.active {
+  background: var(--button);
+  border-color: var(--accent);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.settings-body {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 2px 4px 2px 0;
+}
+
+.settings-note {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-note code {
+  color: var(--text);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.update-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.update-success {
+  color: var(--green);
+  flex-shrink: 0;
+}
+
+.settings-update-frequency {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  max-width: 360px;
+}
+
+.vault-lock {
+  max-width: 360px;
+}
+
+.vault-lock-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.vault-lock-row .select-button {
+  flex: 1 1 auto;
+}
+
+.vault-lock-remaining {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

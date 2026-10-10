@@ -1,0 +1,290 @@
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  align-items: start;
+  grid-auto-rows: 1fr;
+  gap: 10px;
+  padding-bottom: 8px;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  min-height: 146px;
+  padding: 8px 10px 4px;
+  background: var(--base-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  overflow: hidden;
+  text-align: center;
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.card img,
+.card svg {
+  -webkit-user-drag: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.card .card-view {
+  pointer-events: auto;
+}
+
+.card.switching {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.cards.locked .card:not(.switching) {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.card-loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 12, 18, 0.45);
+  border-radius: inherit;
+}
+
+.card-loader[hidden] {
+  display: none;
+}
+
+.spinner.small {
+  width: 22px;
+  height: 22px;
+  border-width: 2px;
+}
+
+.spinner.tiny {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.button.spinning {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+}
+
+.card:hover {
+  z-index: 2;
+  background: #16202c;
+  border-color: var(--border-strong);
+}
+
+.card.current {
+  border-color: var(--current);
+  box-shadow:
+    inset 0 0 0 1px var(--current),
+    0 0 14px rgba(31, 122, 63, 0.35);
+}
+
+.card.current .card-badge {
+  display: inline-block;
+}
+
+.card-accent {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--card-accent, transparent);
+}
+
+.card-folder {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--accent);
+}
+
+.card-folder svg {
+  width: 13px;
+  height: 13px;
+}
+
+.card-badge {
+  display: none;
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: var(--current);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.card.has-folder .card-badge {
+  left: 38px;
+}
+
+.card-avatar {
+  width: 56px;
+  height: 56px;
+  font-size: 22px;
+}
+
+.card-name {
+  width: 100%;
+  text-align: center;
+  color: var(--text-strong);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-meta {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  margin-top: auto;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.card-view {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.card:hover .card-view,
+.card:focus-within .card-view,
+.card-view:focus-visible {
+  opacity: 1;
+}
+
+.card-view:hover {
+  background: var(--button);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.card-copy {
+  top: 40px;
+}
+
+.card-playtime {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.card-rank {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: auto;
+  color: var(--text);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.card-rank span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-rank img {
+  width: 30px;
+  height: 30px;
+}
+
+.card-meta.rank-only .card-rank {
+  flex: 0 1 auto;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.card-rank-icon {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+.folder-card,
+.back-card {
+  justify-content: flex-start;
+}
+
+.back-card {
+  justify-content: center;
+}
+
+.folder-card .folder-icon,
+.back-card .folder-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 62px;
+  height: 62px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--avatar);
+  color: var(--accent);
+}
+
+.back-card .folder-icon {
+  color: var(--text);
+}
+
+.folder-card .card-meta {
+  justify-content: center;
+  color: var(--muted);
+}
+
+.folder-card .card-name {
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,132 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px 10px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.brand-icon {
+  display: block;
+  width: 34px;
+  height: 34px;
+}
+
+.brand:hover {
+  border-color: var(--border-strong);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.app-header .icon-button {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--button);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-strong);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.app-header .icon-button:hover:not(:disabled) {
+  background: var(--button);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  background: var(--base);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+}
+
+.search-wrap:focus-within {
+  border-color: var(--accent);
+}
+
+.search-icon {
+  display: flex;
+  align-items: center;
+  color: var(--muted);
+}
+
+.search {
+  width: 230px;
+  padding: 8px 0;
+  background: transparent;
+  border: 0;
+  color: var(--text-strong);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.breadcrumb {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 12px;
+  min-height: 42px;
+  position: relative;
+  z-index: 3;
+}
+
+.crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.crumb:hover {
+  background: var(--base-alt);
+  color: #ffffff;
+}
+
+.crumb.current {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.crumb-sep {
+  color: #5c6a78;
+}

@@ -1,0 +1,99 @@
+:root {
+  --window: #171a21;
+  --panel: #1b2838;
+  --base: #0e141b;
+  --base-alt: #111923;
+  --border: #26384b;
+  --border-strong: #35566e;
+  --grid: #223348;
+  --text: #c7d5e0;
+  --text-strong: #dfe3e6;
+  --muted: #8f98a0;
+  --accent: #66c0f4;
+  --green: #a4d85f;
+  --button: #2a475e;
+  --button-hover: #365f7c;
+  --primary: #5c7e10;
+  --primary-hover: #6a9212;
+  --primary-border: #8bc53f;
+  --danger: #6f2a28;
+  --danger-hover: #87352f;
+  --danger-border: #a34b44;
+  --current: #1f7a3f;
+  --avatar: #2a475e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.inline-code {
+  padding: 1px 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  background: var(--base-alt);
+  color: inherit;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.95em;
+  overflow-wrap: anywhere;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--window);
+  color: var(--text);
+  font-family: "Noto Sans", "Inter", "Segoe UI", "DejaVu Sans", sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#app,
+.app {
+  height: 100%;
+}
+
+.app,
+.app-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-content {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+img {
+  -webkit-user-drag: none;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4f7c9c;
+}

@@ -27,6 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.check.outputs.version }}
+      tagged: ${{ steps.tag.outputs.tagged }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,6 +48,7 @@ jobs:
         run: python3 .github/bump-version.py "$RELEASE_VERSION"
 
       - name: Tag the release
+        id: tag
         env:
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
@@ -64,6 +66,7 @@ jobs:
           # Only the tag is published: the release commit stays off `main`, so
           # the branch keeps exactly the history written by hand.
           git push origin "refs/tags/$version"
+          echo "tagged=true" >> "$GITHUB_OUTPUT"
 
   publish:
     needs: version
@@ -102,13 +105,21 @@ jobs:
       - name: Install the interface dependencies
         run: npm ci
 
-      - name: Check the interface
-        run: npm run check:web
+      # The Paraglide message modules are generated and git-ignored, so a fresh
+      # checkout has none until the interface is built once.
+      - name: Generate the interface messages
+        run: npm run build
 
-      - name: Check and test Rust
+      - name: Check the interface
         run: |
-          npm run check:rust
-          npm run test:rust
+          npx --no-install svelte-check --tsconfig ./ui/tsconfig.json
+          npx --no-install oxlint ui/src vite.config.js
+          npx --no-install prettier --check .
+
+      - name: Check Rust
+        run: |
+          cargo fmt --all --check
+          cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Build, sign and publish
         uses: tauri-apps/tauri-action@v0
@@ -145,3 +156,21 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
         run: gh release edit "v$RELEASE_VERSION" --draft=false
+
+  # A failed build must not burn its version number: the tag and the draft release
+  # are removed so the same version can be published again after the fix.
+  withdraw:
+    needs: [version, publish]
+    # Only a run that created its own tag may remove it: a refused version must
+    # never delete the release already published under that number.
+    if: failure() && needs.version.outputs.tagged == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove the tag and the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          gh release delete "v$RELEASE_VERSION" --yes --cleanup-tag || true
+          gh api -X DELETE "repos/$GH_REPO/git/refs/tags/v$RELEASE_VERSION" || true

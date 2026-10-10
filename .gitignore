@@ -10,6 +10,9 @@
 
 # Frontend tooling leftovers
 node_modules/
+/ui/src/lib/paraglide/
+/project.inlang/cache/
+/project.inlang/*.db*
 
 # Python bytecode from the maintenance scripts
 __pycache__/
@@ -38,3 +41,6 @@ __pycache__/
 *.p12
 *.pfx
 *.log
+
+/project.inlang/*
+!/project.inlang/settings.json

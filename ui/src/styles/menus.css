@@ -1,0 +1,124 @@
+.context-menu {
+  position: fixed;
+  z-index: 70;
+  min-width: 236px;
+  max-height: 70vh;
+  overflow: auto;
+  padding: 6px;
+  background: var(--base);
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text-strong);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+.menu-item:hover {
+  background: #1f3a4a;
+  border-color: var(--border-strong);
+  color: #ffffff;
+}
+
+.menu-item.danger {
+  color: #ffb8af;
+}
+
+.menu-item.accent {
+  color: var(--green);
+}
+
+.menu-item.accent:hover {
+  color: #c7f08a;
+}
+
+.menu-item.danger:hover {
+  background: #3a2020;
+  border-color: var(--danger-border);
+}
+
+.menu-item.checked {
+  background: var(--button);
+  border-color: var(--accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.menu-item.checked:hover {
+  background: var(--button-hover);
+}
+
+.menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  color: var(--muted);
+}
+
+.menu-item.accent .menu-icon {
+  color: inherit;
+}
+
+.menu-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  color: var(--primary-border);
+  text-align: center;
+}
+
+.menu-folder-picker {
+  margin: 4px 8px;
+}
+
+.menu-heading {
+  margin: 4px 8px 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.context-menu hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 5px 4px;
+}
+
+.menu-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 8px 6px;
+}
+
+.menu-icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
+  gap: 6px;
+  padding: 4px 8px 6px;
+}
+
+.menu-icons .icon-choice {
+  width: 28px;
+  height: 28px;
+}

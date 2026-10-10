@@ -1,41 +1,73 @@
-/* Payloads exchanged with Rust, mirroring src-tauri/src/commands.rs. */
+import type { Language, ResolvedLanguageType } from "./i18n/i18n.constants";
+import type { InstallKind } from "./accounts/installations.constants";
+import type {
+  PlaytimeStatus,
+  SessionEndReason,
+  TrackingCoverage,
+} from "./playtime/playtime.constants";
+import type { RankKind } from "./ranks/ranks.constants";
+import type { GuardKind, LinkConfirmKind, LinkStatus } from "./steam-guard/steam-guard.constants";
+import type { SearchScope, UpdateInterval, VaultLockInterval } from "./state/state.constants";
 
-export interface Installation {
+export type InstallationType = {
   index: number;
-  label: string;
-  kind: string;
+  kind: InstallKind;
   root: string;
-}
+};
 
-export interface InstallationSetting {
+export type InstallationSettingType = {
   root: string;
-  label: string;
-  kind: string;
+  kind: InstallKind;
   custom: boolean;
   hidden: boolean;
-}
+};
 
-export interface Settings {
+export type SettingsType = {
+  language: Language;
+  resolved_language: ResolvedLanguageType;
   show_installation_selector: boolean;
-  show_machine_playtime: boolean;
-  entries: InstallationSetting[];
-  settings_path: string;
-}
+  tracking_enabled: boolean;
+  tracking_history: TrackingHistoryType[];
+  close_to_tray: boolean;
+  update_interval: UpdateInterval;
+  search_scope: SearchScope;
+  vault_lock_interval: VaultLockInterval;
+  last_update_check_at: number | null;
+  entries: InstallationSettingType[];
+  database_path: string;
+};
 
-export interface RankEntry {
+export type TrackingHistoryType = {
+  installation: TrackingInstallationType | null;
+  account_count: number;
+};
+
+export type TrackingInstallationType = {
+  kind: InstallKind;
+  root: string;
+};
+
+export type LogSnapshotType = {
+  path: string;
+  content: string;
+  truncated: boolean;
+  previous_available: boolean;
+};
+
+export type RankEntryType = {
   value: string;
   family: string;
-}
+};
 
-export interface RankTemplate {
+export type RankTemplateType = {
   id: string;
   label: string;
-  kind: "tiered" | "rating";
+  kind: RankKind;
   max_rating: number | null;
-  ranks: RankEntry[];
-}
+  ranks: RankEntryType[];
+};
 
-export interface Account {
+export type AccountType = {
   steam_id: string;
   account_name: string;
   persona_name: string;
@@ -44,86 +76,158 @@ export interface Account {
   avatar: string | null;
   rank: string;
   rank_template: string;
-  rank_kind: string;
+  rank_kind: RankKind;
   rank_family: string;
   playtime_seconds: number;
-  playtime_text: string;
-  playtime_tooltip: string;
-  last_login_text: string;
-  last_login_absolute: string;
   last_login_seconds: number;
   is_current: boolean;
+  is_local: boolean;
   session_count: number;
   color: string | null;
   folder_id: string | null;
-}
+  has_authenticator: boolean;
+  has_authenticator_session: boolean;
+};
 
-export interface Folder {
+export type ToastAccountType = Pick<
+  AccountType,
+  "avatar" | "initial" | "display_name" | "persona_name"
+>;
+
+export type ToastFolderType = Pick<FolderType, "name" | "color" | "icon" | "system">;
+
+export type VaultStatusType = {
+  path: string;
+  lock_in_seconds: number | null;
+  encrypted: boolean;
+  locked: boolean;
+  indexed: boolean;
+  count: number;
+  error: string | null;
+};
+
+export type StoredAuthenticatorType = {
+  steam_id: string;
+  account_name: string;
+  serial_number: string;
+  device_id: string;
+  has_tokens: boolean;
+};
+
+export type CodeInfoType = {
+  valid_until: number;
+  code: string;
+  seconds_remaining: number;
+  period: number;
+};
+
+export type ConfirmationItemType = {
+  id: string;
+  nonce: string;
+  kind: string;
+  headline: string;
+  summary: string;
+  creator_id: string;
+  creation_time: number;
+  icon: string | null;
+  multi: boolean;
+};
+
+export type GuardMethodType = {
+  kind: GuardKind;
+  message: string;
+};
+
+export type LoginBeginType = {
+  session_id: string;
+  methods: GuardMethodType[];
+  qr_svg: string | null;
+  challenge_url: string | null;
+};
+
+export type LoginResultType = {
+  session_id: string;
+  steam_id: string;
+  account_name: string;
+  stored: boolean;
+};
+
+export type LinkStartType = {
+  session_id: string;
+  status: LinkStatus;
+  steam_id: string;
+  account_name: string;
+  revocation_code: string | null;
+  phone_hint: string | null;
+  confirm_kind: LinkConfirmKind | null;
+  message: string | null;
+};
+
+export type FolderType = {
   id: string;
   name: string;
   account_count: number;
-}
+  system: boolean;
+  color: string | null;
+  icon: string | null;
+};
 
-export interface ActiveGame {
+export type ActiveGameType = {
   app_id: string;
   name: string;
   account_id: string;
-  elapsed_text: string;
-}
+  elapsed_seconds: number;
+};
 
-export interface Snapshot {
-  installations: Installation[];
+export type SnapshotType = {
+  revision: number;
+  installations: InstallationType[];
   selected: number;
-  accounts: Account[];
+  accounts: AccountType[];
   auto_login_user: string;
   masked: boolean;
   steam_ids_visible: boolean;
   machine_seconds: number;
-  machine_text: string;
-  active_games: ActiveGame[];
+  active_games: ActiveGameType[];
   tracker_ready: boolean;
-  status: string;
   steam_running: boolean;
-  rank_templates: RankTemplate[];
-  settings: Settings;
-  folders: Folder[];
-}
+  rank_templates: RankTemplateType[];
+  settings: SettingsType;
+  folders: FolderType[];
+  vault: VaultStatusType;
+};
 
-export interface PlaytimeCell {
+export type PlaytimeCellType = {
   steam_id: string;
   seconds: number;
-  text: string;
   session_count: number;
-}
+};
 
-export interface PlaytimeSnapshot {
+export type PlaytimeSnapshotType = {
   machine_seconds: number;
-  machine_text: string;
   tracker_ready: boolean;
-  accounts: PlaytimeCell[];
-  active_games: ActiveGame[];
-}
+  accounts: PlaytimeCellType[];
+  active_games: ActiveGameType[];
+};
 
-export interface GameRow {
+export type GameRowType = {
   app_id: string;
   name: string;
   sessions: number;
   seconds: number;
-  seconds_text: string;
-  status: string;
-}
+  status: PlaytimeStatus;
+};
 
-export interface MachineGameRow {
+export type MachineGameRowType = {
   app_id: string;
   name: string;
   accounts: number;
   sessions: number;
   seconds: number;
-  seconds_text: string;
-  status: string;
-}
+  status: PlaytimeStatus;
+};
 
-export interface AccountPlaytimeRow {
+export type AccountPlaytimeRowType = {
   account_id: string;
   display_name: string;
   account_name: string;
@@ -131,11 +235,10 @@ export interface AccountPlaytimeRow {
   avatar: string | null;
   games: number;
   seconds: number;
-  seconds_text: string;
-  status: string;
-}
+  status: PlaytimeStatus;
+};
 
-export interface SessionRow {
+export type SessionRowType = {
   session_id: string;
   account_id: string;
   account_name: string;
@@ -144,65 +247,79 @@ export interface SessionRow {
   avatar: string | null;
   game_name: string;
   app_id: string;
-  started_text: string;
-  ended_text: string;
-  duration_text: string;
-  coverage: string;
-  end_reason: string;
-  status: string;
+  started_at: number;
+  ended_at: number | null;
+  launch_timestamp: number;
+  process_create_time: number | null;
+  root_pid: number | null;
+  coverage: TrackingCoverage;
+  end_reason: SessionEndReason;
+  exit_code: number | null;
+  status: PlaytimeStatus;
   seconds: number;
-  tooltip: string;
-}
+};
 
-export interface DailyPoint {
+export type DailyPointType = {
   day: string;
   seconds: number;
   sessions: number;
-}
+};
 
-export interface Report {
+export type ReportType = {
   account_id: string | null;
-  title: string;
-  subtitle: string;
-  summary_text: string;
-  statistics_text: string;
-  notice_text: string;
-  games: GameRow[];
-  machine_games: MachineGameRow[];
-  accounts: AccountPlaytimeRow[];
-  daily7: DailyPoint[];
-  daily30: DailyPoint[];
-  daily90: DailyPoint[];
-  sessions: SessionRow[];
+  total_seconds: number;
+  game_count: number;
+  account_count: number;
+  session_count: number;
+  rank: string;
+  rank_template: string;
+  statistics: {
+    history_started_at: number;
+    session_count: number;
+    average_session_seconds: number;
+    longest_session_seconds: number;
+  };
+  games: GameRowType[];
+  machine_games: MachineGameRowType[];
+  accounts: AccountPlaytimeRowType[];
+  daily7: DailyPointType[];
+  daily30: DailyPointType[];
+  daily90: DailyPointType[];
+  sessions: SessionRowType[];
   machine: boolean;
-}
+};
 
-export interface UpdateInfo {
+export type UpdateInfoType = {
   version: string;
   current_version: string;
   notes: string | null;
-}
+};
 
-export interface UpdateProgress {
+export type UpdateProgressType = {
   downloaded: number;
   total: number | null;
-}
+};
 
-export interface AppInfo {
+export type AppInfoType = {
   name: string;
   version: string;
   repository: string;
-}
+};
 
-/** What the generated avatars need, whatever the payload around them. */
-export interface AvatarSource {
+export type AvatarSourceType = {
   avatar: string | null;
   initial: string;
-}
+  persona_name?: string;
+};
 
-/** One cell of a report table. */
-export interface TableCell {
+export type TableCellType = {
   text: string;
   title?: string;
-  avatar?: AvatarSource;
-}
+  avatar?: AvatarSourceType;
+};
+
+export type BackupImportType = {
+  imported: number;
+  skipped: number;
+  snapshot: SnapshotType;
+};

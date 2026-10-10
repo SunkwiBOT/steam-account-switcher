@@ -1,11 +1,21 @@
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { defineConfig } from "vite";
+import { paraglideVitePlugin } from "@inlang/paraglide-js";
+import { fileURLToPath } from "node:url";
 
 const devHost = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
   root: "ui",
-  plugins: [svelte()],
+  plugins: [
+    paraglideVitePlugin({
+      project: fileURLToPath(new URL("./project.inlang", import.meta.url)),
+      outdir: fileURLToPath(new URL("./ui/src/lib/paraglide", import.meta.url)),
+      strategy: ["globalVariable", "baseLocale"],
+      emitTsDeclarations: true,
+    }),
+    svelte(),
+  ],
   clearScreen: false,
   server: {
     port: 5173,

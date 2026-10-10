@@ -1,17 +1,11 @@
-//! Shared data structures describing a local Steam installation.
-
 use std::path::{Path, PathBuf};
 
-/// How Steam was installed. This drives path layout and how Steam is launched.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum InstallKind {
     /// Linux distribution package or upstream tarball (`~/.steam`, `~/.local/share/Steam`).
     Native,
-    /// Flatpak build of the Steam client.
     Flatpak,
-    /// Snap build of the Steam client.
     Snap,
-    /// Windows installation (registry + `steam.exe`).
     Windows,
 }
 
@@ -26,7 +20,6 @@ impl InstallKind {
     }
 }
 
-/// A Steam data root with everything the app needs to read or write.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SteamInstallation {
     pub kind: InstallKind,
@@ -39,14 +32,6 @@ pub struct SteamInstallation {
     pub prefix: Option<PathBuf>,
 }
 
-impl SteamInstallation {
-    /// Human readable label used by the installation picker.
-    pub fn label(&self) -> String {
-        format!("{}: {}", self.kind.as_str(), self.root.display())
-    }
-}
-
-/// One account remembered by the local Steam client.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SteamAccount {
     pub steam_id: String,
@@ -73,7 +58,6 @@ impl SteamAccount {
         }
     }
 
-    /// Single uppercase letter used by the generated avatar.
     pub fn avatar_initial(&self) -> String {
         let label = self.display_name().trim();
         match label.chars().next() {
@@ -113,8 +97,6 @@ pub fn expand_home(path: &Path) -> PathBuf {
 }
 
 pub fn home_dir() -> Option<PathBuf> {
-    // `HOME` on unix, `USERPROFILE` on Windows; falling back to the platform
-    // specific variables keeps this dependency free.
     #[cfg(windows)]
     {
         std::env::var_os("USERPROFILE")

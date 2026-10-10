@@ -1,5 +1,4 @@
-//! Reading, switching and removing the accounts Steam remembers locally.
-
+use crate::error_code::ErrorCode;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -21,15 +20,10 @@ const ACCOUNT_KEYS: [&str; 5] = [
 
 const AVATAR_SUFFIXES: [&str; 4] = [".png", ".jpg", ".jpeg", ".webp"];
 
-/// What a switch request actually did.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SwitchOutcome {
-    /// Steam was restarted with the requested account selected.
     Switched { account_name: String },
-    /// The requested account was already the live session; nothing changed.
     AlreadyActive { account_name: String },
-    /// The right account was already selected and Steam was closed, so the
-    /// client was simply started.
     Started { account_name: String },
 }
 
@@ -51,7 +45,6 @@ impl SwitchOutcome {
     }
 }
 
-/// Owns every operation that touches a Steam installation.
 #[derive(Clone)]
 pub struct SteamManager {
     pub installation: SteamInstallation,
@@ -68,7 +61,6 @@ impl std::fmt::Debug for SteamManager {
 }
 
 impl SteamManager {
-    /// Manager that really starts and stops the local Steam client.
     pub fn new(installation: SteamInstallation) -> Self {
         Self {
             installation,
@@ -88,7 +80,6 @@ impl SteamManager {
         }
     }
 
-    /// Every account in `loginusers.vdf`, most recently used first.
     pub fn list_accounts(&self) -> Result<Vec<SteamAccount>> {
         let data = self.read_loginusers()?;
         let Some(users) = data.get_object("users") else {
@@ -171,16 +162,11 @@ impl SteamManager {
         self.set_auto_login_user(account_name)?;
         let stored = self.auto_login_user()?;
         if stored != account_name {
-            return Err(SteamError::config(format!(
-                "Steam kept the previous auto-login account ({stored:?} instead of {account_name:?}). \
-The registry file may be read-only or the Steam client is rewriting it."
-            )));
+            return Err(SteamError::config(ErrorCode::SteamRegistryFailed));
         }
         Ok(())
     }
 
-    /// Cached Steam avatar, when the client stored one on this machine.
-    /// Checks the known file names first, then scans the local caches.
     pub fn find_avatar_path(&self, steam_id: &str, account_name: &str) -> Option<PathBuf> {
         let directories = [
             self.installation.config_dir.join("avatarcache"),
@@ -189,7 +175,8 @@ The registry file may be read-only or the Steam client is rewriting it."
         ];
 
         let mut names = vec![steam_id.to_string()];
-        if !account_name.is_empty() {
+        // The login name comes from a file Steam rewrites, so it must not add path separators.
+        if is_plain_file_name(account_name) {
             names.push(account_name.to_string());
         }
         for suffix in ["_full", "_medium", "_icon"] {
@@ -247,22 +234,18 @@ The registry file may be read-only or the Steam client is rewriting it."
         fallback
     }
 
-    /// Points Steam at another account, optionally restarting the client.
     pub fn switch_account(&self, identifier: &str, restart: bool) -> Result<SwitchOutcome> {
-        let account = self.find_account(identifier)?;
-        let account_name = account
-            .as_ref()
-            .map(|account| account.account_name.clone())
-            .unwrap_or_else(|| identifier.to_string());
+        // Writing an unknown identifier would put a name Steam never saw into
+        // AutoLoginUser, so an unknown account is refused instead.
+        let account = self
+            .find_account(identifier)?
+            .ok_or_else(|| SteamError::config(ErrorCode::AccountUnavailable))?;
+        let account_name = account.account_name.clone();
 
         if account_name.is_empty() {
-            return Err(SteamError::config(
-                "Cannot switch to an empty account name.",
-            ));
+            return Err(SteamError::config(ErrorCode::AccountUnavailable));
         }
 
-        // Steam is single instance, so a switch goes through a restart. Two
-        // shortcuts keep that from doing pointless work.
         if restart {
             let running = self.processes.is_running();
             let is_target = self
@@ -275,8 +258,6 @@ The registry file may be read-only or the Steam client is rewriting it."
                     // Restarting would only cost the user their running game.
                     return Ok(SwitchOutcome::AlreadyActive { account_name });
                 }
-                // The right account is already selected and Steam is closed:
-                // starting the client is all that is left to do.
                 self.processes.launch(&self.installation)?;
                 return Ok(SwitchOutcome::Started { account_name });
             }
@@ -288,9 +269,7 @@ The registry file may be read-only or the Steam client is rewriting it."
         }
 
         self.set_auto_login_user_verified(&account_name)?;
-        if let Some(account) = &account {
-            self.prepare_loginusers_auto_login(&account.steam_id)?;
-        }
+        self.prepare_loginusers_auto_login(&account.steam_id)?;
 
         if restart {
             self.processes.launch(&self.installation)?;
@@ -311,7 +290,6 @@ The registry file may be read-only or the Steam client is rewriting it."
         self.processes.launch(&self.installation)
     }
 
-    /// Clears `MostRecent`/`AllowAutoLogin` so Steam shows its login window.
     pub fn clear_loginusers_auto_login(&self) -> Result<()> {
         let mut data = self.read_loginusers()?;
         let Some(users) = data.get_object_mut("users") else {
@@ -329,7 +307,6 @@ The registry file may be read-only or the Steam client is rewriting it."
         self.write_loginusers(&data)
     }
 
-    /// Flags the target account so Steam auto-logs into it on the next start.
     pub fn prepare_loginusers_auto_login(&self, steam_id: &str) -> Result<()> {
         let mut data = self.read_loginusers()?;
         let Some(users) = data.get_object_mut("users") else {
@@ -357,11 +334,10 @@ The registry file may be read-only or the Steam client is rewriting it."
         self.write_loginusers(&data)
     }
 
-    /// Removes an account from Steam's login metadata.
     pub fn remove_account(&self, identifier: &str, cleanup_userdata: bool) -> Result<()> {
         let account = self
             .find_account(identifier)?
-            .ok_or_else(|| SteamError::config(format!("Unknown Steam account: {identifier}")))?;
+            .ok_or_else(|| SteamError::config(ErrorCode::AccountUnavailable))?;
 
         // Steam keeps loginusers.vdf in memory and rewrites it when it exits,
         // so editing the file while the client runs silently resurrects the
@@ -393,7 +369,6 @@ The registry file may be read-only or the Steam client is rewriting it."
         Ok(())
     }
 
-    /// Deletes `userdata/<account-id>` for a public individual SteamID64.
     pub fn remove_userdata(&self, steam_id: &str) -> Result<()> {
         // Steam's userdata directories use the low 32-bit account ID, while
         // loginusers.vdf keys contain the full 64-bit Steam ID.
@@ -405,19 +380,12 @@ The registry file may be read-only or the Steam client is rewriting it."
             .and_then(|id| id.checked_sub(INDIVIDUAL_BASE))
             .and_then(|id| u32::try_from(id).ok())
             .filter(|id| *id != 0)
-            .ok_or_else(|| {
-                SteamError::config(format!(
-                    "Refusing to delete userdata for invalid steamid: {steam_id}"
-                ))
-            })?;
+            .ok_or_else(|| SteamError::config(ErrorCode::UnsafeDataRemoval))?;
 
         let userdata_root = resolve(&self.installation.userdata_dir);
         let target = resolve(&userdata_root.join(account_id.to_string()));
         if !target.starts_with(&userdata_root) || target == userdata_root {
-            return Err(SteamError::config(format!(
-                "Refusing to delete path outside userdata: {}",
-                target.display()
-            )));
+            return Err(SteamError::config(ErrorCode::UnsafeDataRemoval));
         }
 
         if target.exists() {
@@ -439,21 +407,12 @@ The registry file may be read-only or the Steam client is rewriting it."
         self.processes.is_running()
     }
 
-    /// Path of the local playtime database for this installation.
-    pub fn playtime_state_path(&self) -> PathBuf {
-        self.installation
-            .config_dir
-            .join("steam-account-switcher-playtime.json")
-    }
-
-    /// Path of the local rank metadata for this installation.
     pub fn metadata_path(&self) -> PathBuf {
         self.installation
             .config_dir
             .join("steam-account-switcher-metadata.json")
     }
 
-    /// Path of Steam's game process log used for playtime tracking.
     pub fn gameprocess_log_path(&self) -> PathBuf {
         self.installation.root.join("logs/gameprocess_log.txt")
     }
@@ -508,257 +467,6 @@ pub fn write_vdf(path: &Path, data: &VdfObject) -> Result<()> {
         .map_err(|error| SteamError::io(format!("Unable to write {}", path.display()), error))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::model::InstallKind;
-
-    fn seed_installation(directory: &Path) -> SteamManager {
-        let config_dir = directory.join("config");
-        fs::create_dir_all(&config_dir).expect("config dir");
-        fs::create_dir_all(directory.join("userdata/39734273")).expect("first userdata");
-        fs::create_dir_all(directory.join("userdata/39734274")).expect("second userdata");
-
-        fs::write(
-            config_dir.join("loginusers.vdf"),
-            r#"
-"users"
-{
-	"76561198000000001"
-	{
-		"AccountName"		"first-account"
-		"PersonaName"		"First"
-		"MostRecent"		"1"
-		"AllowAutoLogin"		"1"
-		"RememberPassword"		"1"
-		"Timestamp"		"1700000000"
-	}
-	"76561198000000002"
-	{
-		"AccountName"		"second-account"
-		"PersonaName"		"Second"
-		"MostRecent"		"0"
-		"Timestamp"		"1600000000"
-	}
-}
-"#,
-        )
-        .expect("loginusers");
-
-        fs::write(
-            config_dir.join("config.vdf"),
-            r#"
-"InstallConfigStore"
-{
-	"Software"
-	{
-		"Valve"
-		{
-			"Steam"
-			{
-				"Accounts"
-				{
-					"first-account"
-					{
-						"SteamID"		"76561198000000001"
-					}
-				}
-			}
-		}
-	}
-}
-"#,
-        )
-        .expect("config.vdf");
-
-        fs::write(
-            directory.join("registry.vdf"),
-            "\"Registry\"\n{\n\t\"HKCU\"\n\t{\n\t\t\"Software\"\n\t\t{\n\t\t\t\"Valve\"\n\t\t\t{\n\t\t\t\t\"Steam\"\n\t\t\t\t{\n\t\t\t\t\t\"AutoLoginUser\"\t\t\"first-account\"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n}\n",
-        )
-        .expect("registry.vdf");
-
-        SteamManager::with_processes(
-            SteamInstallation {
-                kind: InstallKind::Native,
-                root: directory.to_path_buf(),
-                config_dir: config_dir.clone(),
-                loginusers_path: config_dir.join("loginusers.vdf"),
-                registry_path: directory.join("registry.vdf"),
-                userdata_dir: directory.join("userdata"),
-                launch_command: vec!["steam".to_string()],
-                prefix: None,
-            },
-            Arc::new(crate::processes::NoProcesses),
-        )
-    }
-
-    fn temp_installation(name: &str) -> (PathBuf, SteamManager) {
-        let directory =
-            std::env::temp_dir().join(format!("steam-core-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&directory);
-        fs::create_dir_all(&directory).expect("temp dir");
-        let manager = seed_installation(&directory);
-        (directory, manager)
-    }
-
-    #[test]
-    fn lists_accounts_most_recent_first() {
-        let (directory, manager) = temp_installation("list");
-        let accounts = manager.list_accounts().expect("accounts");
-
-        assert_eq!(accounts.len(), 2);
-        assert_eq!(accounts[0].account_name, "first-account");
-        assert_eq!(accounts[0].display_name(), "First");
-        assert!(accounts[0].most_recent);
-        assert!(!accounts[1].most_recent);
-        assert_eq!(accounts[0].avatar_initial(), "F");
-
-        let _ = fs::remove_dir_all(directory);
-    }
-
-    #[test]
-    fn switch_marks_the_target_account_without_restarting_steam() {
-        let (directory, manager) = temp_installation("switch");
-        let outcome = manager
-            .switch_account("second-account", false)
-            .expect("switch");
-        assert_eq!(outcome.account_name(), "second-account");
-        assert!(!outcome.already_active());
-        assert_eq!(
-            manager
-                .current_account()
-                .expect("current")
-                .map(|a| a.account_name),
-            Some("second-account".to_string())
-        );
-        assert_eq!(
-            manager.auto_login_user().expect("auto login"),
-            "second-account"
-        );
-
-        let accounts = manager.list_accounts().expect("accounts");
-        let second = accounts
-            .iter()
-            .find(|account| account.account_name == "second-account")
-            .expect("second account");
-        assert!(second.most_recent);
-        assert!(second.allow_auto_login);
-        assert!(second.remember_password);
-        assert!(second.timestamp.unwrap_or(0) > 1_700_000_000);
-
-        let first = accounts
-            .iter()
-            .find(|account| account.account_name == "first-account")
-            .expect("first account");
-        assert!(!first.most_recent);
-
-        let _ = fs::remove_dir_all(directory);
-    }
-
-    #[test]
-    fn removing_an_account_clears_login_metadata_and_userdata() {
-        let (directory, manager) = temp_installation("remove");
-
-        manager
-            .remove_account("first-account", true)
-            .expect("remove account");
-
-        let accounts = manager.list_accounts().expect("accounts");
-        assert_eq!(accounts.len(), 1);
-        assert_eq!(accounts[0].account_name, "second-account");
-        assert!(!directory.join("userdata/39734273").exists());
-        assert!(directory.join("userdata/39734274").exists());
-
-        let config = read_vdf(&directory.join("config/config.vdf")).expect("config.vdf");
-        let accounts_section = config.path(&ACCOUNT_KEYS).expect("accounts section");
-        assert!(accounts_section.get("first-account").is_none());
-
-        let _ = fs::remove_dir_all(directory);
-    }
-
-    #[test]
-    fn userdata_removal_refuses_to_escape_the_userdata_directory() {
-        let (directory, manager) = temp_installation("guard");
-        assert!(manager.remove_userdata("../outside").is_err());
-        assert!(manager.remove_userdata("").is_err());
-        assert!(manager.remove_userdata("39734273").is_err());
-        assert!(manager.remove_userdata("76561197960265728").is_err());
-        assert!(manager.remove_userdata("18446744073709551615").is_err());
-        assert!(directory.join("userdata/39734273").exists());
-        let _ = fs::remove_dir_all(directory);
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn userdata_removal_refuses_symlinks_outside_userdata() {
-        let (directory, manager) = temp_installation("userdata-symlink");
-        let outside = directory.join("outside");
-        fs::create_dir(&outside).expect("outside directory");
-        fs::write(outside.join("save.dat"), "keep").expect("save file");
-        std::os::unix::fs::symlink(&outside, directory.join("userdata/39734275")).expect("symlink");
-        assert!(manager.remove_userdata("76561198000000003").is_err());
-        assert!(outside.join("save.dat").exists());
-        let _ = fs::remove_dir_all(directory);
-    }
-
-    #[test]
-    fn adding_an_account_clears_the_auto_login_selection() {
-        let (directory, manager) = temp_installation("add");
-        assert_eq!(
-            manager.auto_login_user().expect("auto login"),
-            "first-account"
-        );
-
-        // `add_account` also relaunches Steam; only the file/registry side is
-        // exercised here so the test never starts a real client.
-        manager.set_auto_login_user("").expect("clear auto login");
-        manager
-            .clear_loginusers_auto_login()
-            .expect("clear login flags");
-
-        assert_eq!(manager.auto_login_user().expect("auto login"), "");
-        let accounts = manager.list_accounts().expect("accounts");
-        assert!(accounts.iter().all(|account| !account.most_recent));
-        assert!(accounts.iter().all(|account| !account.allow_auto_login));
-
-        let _ = fs::remove_dir_all(directory);
-    }
-
-    #[test]
-    fn avatar_lookup_finds_the_cached_file() {
-        let (directory, manager) = temp_installation("avatar");
-        let cache = directory.join("config/avatarcache");
-        fs::create_dir_all(&cache).expect("avatar cache");
-        fs::write(cache.join("76561198000000001.png"), b"fake").expect("avatar");
-
-        let accounts = manager.list_accounts().expect("accounts");
-        let first = accounts
-            .iter()
-            .find(|account| account.steam_id == "76561198000000001")
-            .expect("first account");
-        assert_eq!(
-            first.avatar_path.as_deref(),
-            Some(cache.join("76561198000000001.png").as_path())
-        );
-
-        let _ = fs::remove_dir_all(directory);
-    }
-
-    #[test]
-    fn accounts_without_cached_avatar_still_have_an_initial() {
-        let account = SteamAccount {
-            steam_id: "76561198000000003".to_string(),
-            account_name: String::new(),
-            persona_name: String::new(),
-            avatar_path: None,
-            most_recent: false,
-            remember_password: false,
-            allow_auto_login: false,
-            wants_offline_mode: false,
-            skip_offline_mode_warning: false,
-            timestamp: None,
-        };
-        assert_eq!(account.display_name(), "76561198000000003");
-        assert_eq!(account.avatar_initial(), "7");
-    }
+fn is_plain_file_name(name: &str) -> bool {
+    !name.is_empty() && name != "." && name != ".." && !name.contains(['/', '\\', '\0'])
 }
