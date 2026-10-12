@@ -18,7 +18,7 @@ and keeps a local playtime history per account, game, day and session.
   and session.
 - [**29 languages**](#settings), the ones Steam speaks: the system language or
   a saved one in Settings → Preferences.
-- [**Linux and Windows**](#download): AppImage, RPM, portable `.exe` or installer,
+- [**Linux and Windows**](#download): AppImage, RPM, deb, portable `.exe` or installer,
   tray icon, start with the system, and updates from the app itself.
 
 Switching accounts is still a regular Steam sign-in: the switcher never reads or
@@ -165,7 +165,8 @@ local playtime tracking stops when the app quits, whichever you choose.
 
 Builds are on the
 [releases page](https://github.com/SunkwiBOT/steam-account-switcher/releases).
-Linux gets an AppImage and an RPM; Windows gets a portable `.exe` or an installer.
+Linux gets an AppImage, an RPM and a deb; Windows gets a portable `.exe` or an
+installer.
 
 ## Build
 

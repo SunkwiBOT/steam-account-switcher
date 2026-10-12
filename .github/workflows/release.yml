@@ -75,7 +75,7 @@ jobs:
       matrix:
         include:
           - platform: ubuntu-22.04
-            args: --bundles appimage,rpm -- --locked
+            args: --bundles appimage,rpm,deb -- --locked
           - platform: windows-latest
             args: --bundles nsis -- --locked
     runs-on: ${{ matrix.platform }}

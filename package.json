@@ -14,7 +14,7 @@
     "dev:app": "tauri dev",
     "build": "vite build",
     "build:app": "tauri build --no-bundle -- --locked",
-    "bundle:linux": "NO_STRIP=true tauri build --bundles appimage,rpm -- --locked",
+    "bundle:linux": "NO_STRIP=true tauri build --bundles appimage,rpm,deb -- --locked",
     "bundle:windows": "tauri build --bundles nsis -- --locked",
     "preview": "vite preview"
   },
