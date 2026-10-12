@@ -48,6 +48,12 @@
         icon={SteamGuardIcon}
         onclose={controller.close}
         closeDisabled={controller.busy && !controller.waiting}
+        onback={controller.vaultReady && controller.screen !== SteamGuardScreen.HOME
+          ? controller.back
+          : undefined}
+        backDisabled={controller.busy && !controller.waiting}
+        backBusy={controller.busyAction === GuardAction.CANCEL_LOGIN ||
+          controller.busyAction === GuardAction.CANCEL_LINK}
       />
 
       <div class="dialog-body">

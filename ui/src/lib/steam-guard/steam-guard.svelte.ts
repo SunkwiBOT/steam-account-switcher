@@ -66,6 +66,17 @@ export const createSteamGuardController = () => {
     linkFlow.reset();
   };
 
+  const back = (): void => {
+    if (session.busy && !loginFlow.waiting) return;
+    if (session.screen === SteamGuardScreen.LINK) {
+      void linkFlow.cancelLink();
+    } else if (session.screen === SteamGuardScreen.LOGIN) {
+      void loginFlow.cancelLogin();
+    } else {
+      session.screen = SteamGuardScreen.HOME;
+    }
+  };
+
   const close = (): void => {
     if (session.busy && !loginFlow.waiting) return;
     if (loginFlow.loginBegin && !linkFlow.link) {
@@ -284,6 +295,7 @@ export const createSteamGuardController = () => {
       return loginFlow.guardNeedsCode;
     },
     close,
+    back,
     errorFor: session.errorFor,
     openVaultSettings,
     pickFile,

@@ -2,15 +2,11 @@
   import MessageText from "../ui/MessageText.svelte";
   import { t, rich } from "../../lib/i18n/i18n.svelte";
 
-  import {
-    GuardAction,
-    SteamGuardScreen,
-    SteamGuardField,
-  } from "../../lib/steam-guard/steam-guard.constants";
+  import { GuardAction, SteamGuardField } from "../../lib/steam-guard/steam-guard.constants";
   import ActionButton from "../ui/ActionButton.svelte";
   import type { SteamGuardControllerType } from "../../lib/steam-guard/steam-guard.svelte";
   import type { AccountType } from "../../lib/types";
-  import { ArrowLeft, FileSearch, Upload } from "@lucide/svelte";
+  import { FileSearch, Upload } from "@lucide/svelte";
   import PasswordInput from "../ui/PasswordInput.svelte";
   import FormError from "../ui/FormError.svelte";
   type SteamGuardImportPropsType = { controller: SteamGuardControllerType; entry: AccountType };
@@ -81,13 +77,6 @@
     </div>
   </div>
   <div class="steamguard-actions">
-    <button
-      class="button"
-      type="button"
-      disabled={controller.busy}
-      onclick={() => (controller.screen = SteamGuardScreen.HOME)}
-      ><ArrowLeft size={15} /> {t.common_back()}</button
-    >
     <ActionButton
       icon={Upload}
       label={t.common_import()}

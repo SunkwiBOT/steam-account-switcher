@@ -5,7 +5,7 @@
   import ActionButton from "../ui/ActionButton.svelte";
   import type { SteamGuardControllerType } from "../../lib/steam-guard/steam-guard.svelte";
   import type { AccountType } from "../../lib/types";
-  import { AlertTriangle, ArrowLeft, ArrowRightLeft, ShieldOff, Check } from "@lucide/svelte";
+  import { AlertTriangle, ArrowRightLeft, ShieldOff, Check } from "@lucide/svelte";
   import PasswordInput from "../ui/PasswordInput.svelte";
   import SteamGuardIcon from "./SteamGuardIcon.svelte";
   import FormError from "../ui/FormError.svelte";
@@ -162,17 +162,6 @@
     {:else}
       <p class="steamguard-note">{linkMessage(controller.link.status)}</p>
     {/if}
-    <div class="steamguard-actions">
-      <ActionButton
-        icon={ArrowLeft}
-        label={t.common_back()}
-        busyLabel={t.common_cancelling()}
-        busy={controller.busyAction === GuardAction.CANCEL_LINK}
-        disabled={controller.busy}
-        className="button"
-        onclick={controller.cancelLink}
-      />
-    </div>
     <FormError message={controller.errorFor(SteamGuardField.LINK)} />
   </section>
 {/if}

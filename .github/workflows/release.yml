@@ -159,6 +159,9 @@ jobs:
 
   # A failed build must not burn its version number: the tag and the draft release
   # are removed so the same version can be published again after the fix.
+  # ! After a failed run, start a NEW run for the same version: "Re-run failed
+  # ! jobs" reuses the first attempt's outputs, but the tag it checks out was
+  # ! withdrawn below, so every publish job fails at checkout.
   withdraw:
     needs: [version, publish]
     # ! Only a run that created its own tag may remove it: a refused version must

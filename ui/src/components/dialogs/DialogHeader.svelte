@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { X } from "@lucide/svelte";
+  import { ArrowLeft, X } from "@lucide/svelte";
   import type { Component } from "svelte";
   import { t } from "../../lib/i18n/i18n.svelte";
   import type { MessageType } from "../../lib/i18n/messages";
@@ -14,6 +14,9 @@
     onclose?: () => void;
     closeDisabled?: boolean;
     closeLabel?: string;
+    onback?: () => void;
+    backDisabled?: boolean;
+    backBusy?: boolean;
   };
 
   let {
@@ -24,10 +27,24 @@
     onclose,
     closeDisabled = false,
     closeLabel,
+    onback,
+    backDisabled = false,
+    backBusy = false,
   }: DialogHeaderPropsType = $props();
 </script>
 
 <header class="dialog-head">
+  {#if onback}
+    <button
+      class="icon-button dialog-back"
+      type="button"
+      aria-label={t.common_back()}
+      title={t.common_back()}
+      disabled={backDisabled || backBusy}
+      onclick={onback}
+      >{#if backBusy}<AsyncIcon size={16} />{:else}<ArrowLeft size={16} />{/if}</button
+    >
+  {/if}
   <h2 {id} class="dialog-title">
     {#if busy}<AsyncIcon size={18} />{:else}<span class="action-icon" aria-hidden="true"
         ><Icon size={18} /></span

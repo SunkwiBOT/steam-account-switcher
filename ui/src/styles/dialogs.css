@@ -145,6 +145,14 @@
   flex: 0 0 auto;
 }
 
+.dialog-head > .dialog-title {
+  flex: 1 1 auto;
+}
+
+.dialog-back {
+  margin-top: 1px;
+}
+
 .dialog-subtitle {
   margin: 4px 0 0;
   color: var(--muted);
