@@ -15,4 +15,4 @@ export enum BackupField {
   GENERAL = "general",
 }
 
-export const BACKUP_EXTENSION = "sasguard";
+export const BACKUP_EXTENSION = "steamguard";

@@ -62,7 +62,7 @@ jobs:
             git commit -m "chore(release): $version"
           fi
 
-          git tag -a "$version" -m "Steam Account Switcher $version"
+          git tag -a "$version" -m "$version - Steam Account Switcher"
           # ! Only the tag is pushed: the release commit stays off `main`, so
           # ! the branch keeps exactly the history written by hand.
           git push origin "refs/tags/$version"
@@ -130,7 +130,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v${{ needs.version.outputs.version }}
-          releaseName: "Steam Account Switcher v${{ needs.version.outputs.version }}"
+          releaseName: "v${{ needs.version.outputs.version }} - Steam Account Switcher"
           releaseBody: "Download the installer for your system. Existing installations update themselves from the in-app button."
           releaseDraft: true
           prerelease: false

@@ -24,6 +24,14 @@ and keeps a local playtime history per account, game, day and session.
 Switching accounts is still a regular Steam sign-in: the switcher never reads or
 stores your password.
 
+## Related project
+
+[Steam Guard Desktop](https://github.com/SunkwiBOT/steam-guard-desktop) is a
+separate application dedicated to Steam Guard only: an authenticator for Linux,
+Windows and macOS with the same encrypted vault and the same `.steamguard`
+backups. The two applications are not linked, but a backup exported from one
+imports into the other.
+
 ## Your accounts
 
 The list is ordered by last login. Hover an account to show its **eye** button in
@@ -95,7 +103,7 @@ code when it loses focus, then refreshes on return.
   Settings, folders, ranks, the vault and playtime history are all stored in a
   single SQLite database in the application's configuration folder.
 - **Portable backups**: export one authenticator or all of them to a single
-  `.sasguard` file, protected by an independent backup password (or explicitly
+  `.steamguard` file, protected by an independent backup password (or explicitly
   unprotected), and import it on Linux or Windows. Import adds new
   authenticators and keeps existing ones.
 - **Quick copy**: accounts with an authenticator have a shield action on hover

@@ -15,7 +15,7 @@ pub struct BackupImportDto {
 }
 
 /// Extension of the backup files, shared with the interface's file filter.
-const BACKUP_EXTENSION: &str = "sasguard";
+const BACKUP_EXTENSION: &str = "steamguard";
 
 /// ! The destination comes from a native save dialog opened here, never from
 /// the page, so a script in the webview can never choose where the secrets are
@@ -39,7 +39,7 @@ pub async fn steam_guard_export_backup(
                 .dialog()
                 .file()
                 .set_title(rust_i18n::t!("backup_export_title", locale = locale))
-                .set_file_name(format!("steam-guard.{BACKUP_EXTENSION}"))
+                .set_file_name(format!("authenticators.{BACKUP_EXTENSION}"))
                 .add_filter(
                     rust_i18n::t!("backup_file_filter", locale = locale),
                     &[BACKUP_EXTENSION],
