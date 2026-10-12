@@ -11,7 +11,7 @@ repository.workspace = true
 tauri-build = { version = "2", features = [] }
 
 [features]
-# Without it Tauri compiles in development mode and loads `devUrl` instead of
+# ! Without it Tauri compiles in development mode and loads `devUrl` instead of
 # the interface embedded in the binary. Required for release builds.
 custom-protocol = ["tauri/custom-protocol"]
 
@@ -31,9 +31,9 @@ zeroize = "1"
 rust-i18n = "3"
 sys-locale = "0.3"
 
-# Needed to give the window a proper app id / WM class on Linux, so the
-# desktop environment pairs it with the installed .desktop entry and shows the
-# application icon instead of a generic placeholder.
+
+# ! Gives the window its app id / WM class on Linux, so the desktop pairs it
+# with the installed .desktop entry and shows the application icon.
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
 glib = "0.18"

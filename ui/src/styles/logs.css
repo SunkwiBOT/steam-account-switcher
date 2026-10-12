@@ -9,9 +9,7 @@
   gap: 5px;
 }
 
-.logs-path-row,
-.logs-actions,
-.logs-selector {
+.logs-path-row {
   display: flex;
   gap: 8px;
   align-items: center;
@@ -19,7 +17,10 @@
 
 .logs-actions,
 .logs-selector {
+  display: flex;
   flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 .logs-path-row .input {

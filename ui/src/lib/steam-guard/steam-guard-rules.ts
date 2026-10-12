@@ -45,8 +45,8 @@ export const fieldForGuardAction = (
   }
 };
 
-// A response only lands when neither the session (generation) nor the
-// confirmation list (revision) moved on while the request was in flight.
+//! A response only lands when neither the session (generation) nor the
+//! confirmation list (revision) moved on while the request was in flight.
 export const isCurrentResponse = (
   requested: { generation: number; revision: number },
   current: { generation: number; revision: number },

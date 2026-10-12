@@ -68,8 +68,8 @@ impl AppState {
         Ok(())
     }
 
-    /// Erases the stored history of every installation. The running tracker, when
-    /// there is one, is reset in the same transaction, so a failure keeps everything.
+    /// Erases every installation's history; a running tracker is reset in the
+    /// same transaction, so a failure keeps everything.
     pub(crate) fn clear_tracking_data(&self, confirmed: bool) -> Result<(), String> {
         if !confirmed {
             return Err(ErrorCode::ConfirmationRequired.to_string());

@@ -15,12 +15,19 @@
   let tooltip = $state({ text: "", left: 0, top: 0 });
 
   $effect(() => {
-    if (!canvas) {
+    const element = canvas;
+    if (!element) {
       return;
     }
-    const drawn = drawChart(canvas, points);
-    bars = drawn.bars;
-    width = drawn.width;
+    const draw = (): void => {
+      const drawn = drawChart(element, points);
+      bars = drawn.bars;
+      width = drawn.width;
+    };
+    draw();
+    const observer = new ResizeObserver(draw);
+    observer.observe(element);
+    return () => observer.disconnect();
   });
 
   const hover = (event: MouseEvent): void => {

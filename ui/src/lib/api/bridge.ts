@@ -28,9 +28,12 @@ const setActive = async (active: boolean): Promise<void> => {
     // Best effort: the Rust side also follows the window focus events.
   }
   if (active) {
-    // The vault may have locked itself while the window was in the background.
-    await syncSnapshot();
-    applyPlaytime(await invoke("playtime_snapshot"));
+    // The vault may have locked itself in the background. A failed refresh keeps
+    // the last snapshot; the next tick or command retries, so never reject here.
+    try {
+      await syncSnapshot();
+      applyPlaytime(await invoke("playtime_snapshot"));
+    } catch {}
     await checkForUpdateIfDue();
   }
 };
@@ -46,7 +49,11 @@ export const startBridge = async (): Promise<void> => {
     if (app.idle) {
       return;
     }
-    applyPlaytime(await invoke("playtime_snapshot"));
+    try {
+      applyPlaytime(await invoke("playtime_snapshot"));
+    } catch {
+      return;
+    }
     if (event.payload) {
       await refreshOpenReport();
     }

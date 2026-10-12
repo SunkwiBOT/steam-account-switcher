@@ -1,4 +1,5 @@
-use super::*;
+use serde::{Deserialize, Serialize};
+use steamguard::protobufs::steammessages_auth_steamclient::EAuthSessionGuardType;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VaultStatus {
@@ -27,11 +28,47 @@ pub struct CodeInfo {
     pub period: u64,
 }
 
+/// ! Wire names match the interface's `ConfirmationKind` enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConfirmationKind {
+    Trade,
+    Market,
+    Phone,
+    Recovery,
+    ApiKey,
+    Feature,
+    Family,
+    Test,
+    Other,
+}
+
+/// ! Wire names match the interface's `LinkStatus` enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LinkStatus {
+    /// Secrets already saved for this account: the link resumes at the confirmation step.
+    Resume,
+    Linked,
+    AuthenticatorPresent,
+    NeedsPhone,
+    NeedsEmail,
+}
+
+/// ! Wire names match the interface's `LinkConfirmKind` enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LinkConfirmKind {
+    Sms,
+    Email,
+    Unknown,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConfirmationItem {
     pub id: String,
     pub nonce: String,
-    pub kind: String,
+    pub kind: ConfirmationKind,
     pub headline: String,
     pub summary: String,
     pub creator_id: String,
@@ -112,10 +149,10 @@ pub struct LoginResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinkStart {
     pub session_id: String,
-    pub status: String,
+    pub status: LinkStatus,
     pub steam_id: String,
     pub account_name: String,
     pub revocation_code: Option<String>,
     pub phone_hint: Option<String>,
-    pub confirm_kind: Option<String>,
+    pub confirm_kind: Option<LinkConfirmKind>,
 }

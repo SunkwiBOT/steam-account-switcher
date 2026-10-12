@@ -1,4 +1,10 @@
-use super::*;
+use super::errors::{steam_error, AuthError};
+use super::transport::transport;
+use super::types::{LinkConfirmKind, LinkStart, LinkStatus};
+use super::Linker;
+use crate::error_code::ErrorCode;
+use steamguard::accountlinker::AccountLinkConfirmType;
+use steamguard::SteamGuardAccount;
 
 pub struct PendingLink {
     pub(super) linker: Linker,
@@ -13,7 +19,7 @@ impl PendingLink {
         use steamguard::ExposeSecret;
         let mut result = LinkStart {
             session_id: session_id.to_string(),
-            status: "linked".to_string(),
+            status: LinkStatus::Linked,
             steam_id: self.steam_id.to_string(),
             account_name: self.account_name.clone(),
             revocation_code: None,
@@ -22,29 +28,29 @@ impl PendingLink {
         };
         if let Some(account) = &self.account {
             result.revocation_code = Some(account.revocation_code.expose_secret().to_string());
-            result.status = "resume".to_string();
+            result.status = LinkStatus::Resume;
             return Ok(result);
         }
         match self.linker.link() {
             Ok(success) => {
                 result.phone_hint = Some(success.phone_number_hint().to_string());
                 result.confirm_kind = Some(match success.confirm_type() {
-                    AccountLinkConfirmType::SMS => "sms".to_string(),
-                    AccountLinkConfirmType::Email => "email".to_string(),
-                    AccountLinkConfirmType::Unknown(_) => "unknown".to_string(),
+                    AccountLinkConfirmType::SMS => LinkConfirmKind::Sms,
+                    AccountLinkConfirmType::Email => LinkConfirmKind::Email,
+                    AccountLinkConfirmType::Unknown(_) => LinkConfirmKind::Unknown,
                 });
                 let account = success.into_account();
                 result.revocation_code = Some(account.revocation_code.expose_secret().to_string());
                 self.account = Some(account);
             }
             Err(steamguard::AccountLinkError::AuthenticatorPresent) => {
-                result.status = "authenticator_present".to_string()
+                result.status = LinkStatus::AuthenticatorPresent;
             }
             Err(steamguard::AccountLinkError::MustProvidePhoneNumber) => {
-                result.status = "needs_phone".to_string();
+                result.status = LinkStatus::NeedsPhone;
             }
             Err(steamguard::AccountLinkError::MustConfirmEmail) => {
-                result.status = "needs_email".to_string();
+                result.status = LinkStatus::NeedsEmail;
             }
             Err(error) => return Err(steam_error(error)),
         }

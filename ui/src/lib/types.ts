@@ -6,7 +6,12 @@ import type {
   TrackingCoverage,
 } from "./playtime/playtime.constants";
 import type { RankKind } from "./ranks/ranks.constants";
-import type { GuardKind, LinkConfirmKind, LinkStatus } from "./steam-guard/steam-guard.constants";
+import type {
+  ConfirmationKind,
+  GuardKind,
+  LinkConfirmKind,
+  LinkStatus,
+} from "./steam-guard/steam-guard.constants";
 import type { SearchScope, UpdateInterval, VaultLockInterval } from "./state/state.constants";
 
 export type InstallationType = {
@@ -124,7 +129,7 @@ export type CodeInfoType = {
 export type ConfirmationItemType = {
   id: string;
   nonce: string;
-  kind: string;
+  kind: ConfirmationKind;
   headline: string;
   summary: string;
   creator_id: string;
@@ -160,7 +165,6 @@ export type LinkStartType = {
   revocation_code: string | null;
   phone_hint: string | null;
   confirm_kind: LinkConfirmKind | null;
-  message: string | null;
 };
 
 export type FolderType = {

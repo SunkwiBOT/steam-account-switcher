@@ -1,5 +1,7 @@
 {
   "_version": 1,
+  "backup_export_title": "Export Steam Guard authenticators",
+  "backup_file_filter": "Steam Guard backup",
   "tray_account": "Account %{index}",
   "tray_no_accounts": "No accounts",
   "tray_open": "Open",

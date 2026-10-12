@@ -63,8 +63,8 @@ jobs:
           fi
 
           git tag -a "$version" -m "Steam Account Switcher $version"
-          # Only the tag is published: the release commit stays off `main`, so
-          # the branch keeps exactly the history written by hand.
+          # ! Only the tag is pushed: the release commit stays off `main`, so
+          # ! the branch keeps exactly the history written by hand.
           git push origin "refs/tags/$version"
           echo "tagged=true" >> "$GITHUB_OUTPUT"
 
@@ -161,8 +161,8 @@ jobs:
   # are removed so the same version can be published again after the fix.
   withdraw:
     needs: [version, publish]
-    # Only a run that created its own tag may remove it: a refused version must
-    # never delete the release already published under that number.
+    # ! Only a run that created its own tag may remove it: a refused version must
+    # ! never delete the release already published under that number.
     if: failure() && needs.version.outputs.tagged == 'true'
     runs-on: ubuntu-latest
     steps:

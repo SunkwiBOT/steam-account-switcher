@@ -1,5 +1,6 @@
 <script lang="ts">
   import DialogHeader from "../dialogs/DialogHeader.svelte";
+  import { focusTrap } from "../../lib/actions/focus-trap";
   import { t } from "../../lib/i18n/i18n.svelte";
 
   import { SettingsSection } from "../../lib/state/state.constants";
@@ -53,6 +54,7 @@
       aria-modal="true"
       aria-labelledby={`${uid}-title`}
       tabindex="-1"
+      use:focusTrap={{ onEscape: () => (app.settingsOpen = false) }}
     >
       <DialogHeader
         id={`${uid}-title`}

@@ -171,7 +171,8 @@ export const accounts = (): AccountType[] => {
 export const trackingEnabled = (): boolean => app.snapshot?.settings.tracking_enabled !== false;
 
 export const folders = (): FolderType[] => {
-  return app.snapshot?.folders ?? [];
+  const list = app.snapshot?.folders ?? [];
+  return [...list.filter((folder) => folder.system), ...list.filter((folder) => !folder.system)];
 };
 
 export const accountById = (steamId: string): AccountType | null => {

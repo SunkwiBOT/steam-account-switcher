@@ -1,12 +1,6 @@
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use rusqlite::{Connection, Transaction};
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use steam_core::error_code::ErrorCode;
 use steam_core::model::{home_dir, resolve};
-use steam_core::storage::Database;
 
 fn default_true() -> bool {
     true

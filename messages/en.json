@@ -284,6 +284,7 @@
   "folder_move_label": "Move to folder",
   "folder_move_success": "Moved to folder {folder}.",
   "folder_name": "Folder name",
+  "folder_locked_tooltip": "Read-only folder",
   "folder_none": "No folder",
   "folder_notification": "{folder}: {message}",
   "folder_open": "Open folder",

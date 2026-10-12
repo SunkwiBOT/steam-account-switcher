@@ -50,12 +50,14 @@ pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
             .seconds()
             .map(|seconds| seconds.saturating_sub(unlocked_at.elapsed().as_secs()))
     });
-    let steam_running = inner
-        .manager
+    let manager = inner.manager.clone();
+    drop(inner);
+    // Enumerating every process takes a while: do it after releasing the
+    // state lock so the tray and the window close handler never wait on it.
+    let steam_running = manager
         .as_ref()
         .map(|manager| manager.is_steam_running())
         .unwrap_or(false);
-    drop(inner);
     let (authenticators, configured_ids, vault_status) = {
         let authenticator = state.authenticator();
         let guard = authenticator
@@ -191,14 +193,18 @@ pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
         .filter(|account| !account.is_local)
         .count();
     if retained_count > 0 {
-        folders.push(FolderDto {
-            id: crate::retained_accounts::SAVED_GUARD_FOLDER_ID.to_string(),
-            name: crate::retained_accounts::SAVED_GUARD_FOLDER_NAME.to_string(),
-            account_count: retained_count,
-            system: true,
-            color: None,
-            icon: None,
-        });
+        // The read-only Steam Guard folder always comes first.
+        folders.insert(
+            0,
+            FolderDto {
+                id: crate::retained_accounts::SAVED_GUARD_FOLDER_ID.to_string(),
+                name: crate::retained_accounts::SAVED_GUARD_FOLDER_NAME.to_string(),
+                account_count: retained_count,
+                system: true,
+                color: None,
+                icon: None,
+            },
+        );
     }
 
     SnapshotDto {

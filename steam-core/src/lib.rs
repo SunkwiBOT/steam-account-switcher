@@ -1,3 +1,8 @@
+// ! Steam's folders, processes and launch command are only known for Linux and
+// ! Windows; any other target would build an application that detects nothing.
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+compile_error!("steam-core supports Linux and Windows only.");
+
 pub mod accounts;
 pub mod authenticator;
 pub mod autologin;

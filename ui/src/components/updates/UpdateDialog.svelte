@@ -1,5 +1,6 @@
 <script lang="ts">
   import DialogHeader from "../dialogs/DialogHeader.svelte";
+  import { focusTrap } from "../../lib/actions/focus-trap";
   import MessageText from "../ui/MessageText.svelte";
   import { t, rich } from "../../lib/i18n/i18n.svelte";
 
@@ -17,9 +18,16 @@
 
   const percent = $derived(updateProgressPercent());
   const uid = $props.id();
+
+  // Same rule as the "Later" buttons: the dialog can be put away at any time
+  // except while the update is being installed.
+  const dismiss = (): void => {
+    if (app.updateStage === UpdateStage.INSTALLING) return;
+    app.updateDialog = false;
+  };
 </script>
 
-{#if app.updateStage}
+{#if app.updateStage && app.updateDialog}
   <div class="modal">
     <div class="modal-backdrop"></div>
     <div
@@ -28,6 +36,7 @@
       aria-modal="true"
       aria-labelledby={`${uid}-title`}
       tabindex="-1"
+      use:focusTrap={{ onEscape: dismiss }}
     >
       {#if app.updateStage === UpdateStage.DOWNLOADED || app.updateStage === UpdateStage.INSTALLING}
         <DialogHeader
@@ -78,6 +87,7 @@
       aria-modal="true"
       aria-labelledby={`${uid}-title`}
       tabindex="-1"
+      use:focusTrap={{ onEscape: dismiss }}
     >
       <DialogHeader
         id={`${uid}-title`}

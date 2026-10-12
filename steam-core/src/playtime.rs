@@ -1,19 +1,7 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
-use time::{Date, Duration, OffsetDateTime, PrimitiveDateTime};
-
-use crate::error::{Result, SteamError};
-use crate::games::SteamGameCatalog;
 use crate::model::{SteamAccount, SteamInstallation};
 use crate::processes::ProcessFacts;
-use crate::storage::Database;
-use crate::util::{local_offset, now_unix};
-use rusqlite::{params, Connection, OptionalExtension};
 
 pub const CHECKPOINT_INTERVAL: f64 = 30.0;
 
@@ -45,6 +33,3 @@ pub use log::{parse_gameprocess_line, running_game_events, EventKind, GameProces
 pub use model::*;
 pub use store::{clear_stored_history, recorded_account_count, stored_installations};
 pub use tracker::{system_clock, PlaytimeTracker};
-
-use log::*;
-use store::*;

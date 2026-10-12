@@ -1,4 +1,9 @@
-use super::*;
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
+
+use steam_core::model::SteamAccount;
+
+use super::{AppState, SteamOperationGuard};
 
 impl AppState {
     /// Called while the catalog is locked so older responses can be discarded.

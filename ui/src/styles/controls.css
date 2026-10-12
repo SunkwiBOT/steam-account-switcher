@@ -85,7 +85,7 @@ input.switch:checked {
 
 input.switch:checked::after {
   transform: translateX(18px);
-  background: #ffffff;
+  background: var(--surface-bright);
 }
 
 input.switch:focus-visible {
@@ -112,14 +112,23 @@ input.switch:focus-visible {
 .checkbox input[type="checkbox"]:checked::after {
   content: "✓";
   display: block;
-  color: #ffffff;
+  color: var(--text-bright);
   font-size: 14px;
   line-height: 18px;
   text-align: center;
 }
 
 .checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: var(--text);
   font-size: 13px;
+}
+
+.checkbox input {
+  accent-color: var(--primary-border);
 }
 
 select.input {
@@ -151,7 +160,7 @@ select.input option {
 .button:hover:not(:disabled) {
   background: var(--button-hover);
   border-color: var(--accent);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
 .select-button {
@@ -173,7 +182,7 @@ select.input option {
 
 .select-button:hover:not(:disabled) {
   border-color: var(--accent);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
 .select-button:disabled {
@@ -204,7 +213,7 @@ select.input option {
 .button.primary {
   background: var(--primary);
   border-color: var(--primary-border);
-  color: #f2fbe9;
+  color: var(--primary-text);
   font-weight: 700;
 }
 
@@ -216,12 +225,12 @@ select.input option {
 .button.danger {
   background: var(--danger);
   border-color: var(--danger-border);
-  color: #ffe5e1;
+  color: var(--danger-text);
 }
 
 .button.danger:hover:not(:disabled) {
   background: var(--danger-hover);
-  border-color: #d66a60;
+  border-color: var(--danger-border-hover);
 }
 
 .button:focus-visible,
@@ -242,16 +251,16 @@ select.input option {
 .button.ghost:hover:not(:disabled) {
   background: var(--button);
   border-color: var(--border-strong);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
-/* After the variants: a disabled primary or danger button must not keep its colours. */
+/* ! Must stay after the variants: a disabled primary or danger button must not keep its colours. */
 .button:disabled,
 .button.primary:disabled,
 .button.danger:disabled {
-  background: #182331;
-  color: #67707b;
-  border-color: #253548;
+  background: var(--disabled-bg);
+  color: var(--disabled-text);
+  border-color: var(--disabled-border);
   cursor: default;
 }
 
@@ -273,13 +282,13 @@ select.input option {
 }
 
 .playtime-total:hover:not(:disabled) {
-  background: #142232;
+  background: var(--surface-hover-deep);
   border-color: var(--border-strong);
-  color: #c7f08a;
+  color: var(--green-bright);
 }
 
 .playtime-total:disabled {
-  color: #67707b;
+  color: var(--disabled-text);
   cursor: default;
 }
 
@@ -391,7 +400,7 @@ select.input option {
 }
 
 .password-input .input[aria-invalid="true"] {
-  border-color: #8a3c34;
+  border-color: var(--error-border);
 }
 .inline-link {
   color: inherit;

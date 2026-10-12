@@ -1,4 +1,8 @@
-use super::*;
+use super::model::{AccountState, GameState, LogCursor, PlaytimeState, SessionRecord};
+use crate::error::Result;
+use crate::storage::Database;
+use rusqlite::{params, Connection, OptionalExtension};
+use std::collections::BTreeMap;
 
 pub fn recorded_account_count(database: &Database, installation: &str) -> Option<usize> {
     database
@@ -13,7 +17,7 @@ pub fn recorded_account_count(database: &Database, installation: &str) -> Option
         .map(|count| count as usize)
 }
 
-/// Every installation key that has stored history, whether or not it is still detected.
+/// Includes installations that are no longer detected.
 pub fn stored_installations(database: &Database) -> Vec<String> {
     database
         .read("List playtime installations", |connection| {

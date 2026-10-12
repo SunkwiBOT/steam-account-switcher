@@ -100,7 +100,7 @@ pub(super) struct VaultFile {
     pub(super) nonce: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) ciphertext: Option<String>,
-    /// Account IDs are public metadata. They never authorize vault operations.
+    /// ! Account IDs are public metadata; they never authorize vault operations.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) account_ids: Option<BTreeSet<String>>,
     #[serde(default, deserialize_with = "deserialize_accounts")]
@@ -139,8 +139,8 @@ pub(super) struct Vault {
     indexed: bool,
 }
 
-/// steamguard's shared-secret deserializer panics on invalid lengths. Validate
-/// external data before calling it so malformed backups cannot crash the app.
+/// ! steamguard's shared-secret deserializer panics on invalid lengths, so
+/// ! external data must be validated before it is handed over.
 pub(super) fn deserialize_accounts<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<BTreeMap<String, SteamGuardAccount>, D::Error> {
@@ -336,8 +336,8 @@ impl Vault {
         self.load_error = None;
         self.known_ids = self.configured_ids();
         self.indexed = true;
-        // Repair the public index using the authenticated payload.
-        // If the durable write fails, keep secrets locked and the old file intact.
+        // Repair the public index from the authenticated payload; if the write
+        // fails, stay locked and leave the old file intact.
         if file.account_ids.as_ref() != Some(&self.known_ids) {
             if let Err(error) = self.save() {
                 self.lock();
@@ -376,8 +376,8 @@ impl Vault {
                 .filter(|value| !value.is_empty())
                 .ok_or(AuthError::Code(ErrorCode::CurrentPasswordRequired))?;
             let candidate = derive_key(password, &self.salt.ok_or(AuthError::Locked)?)?;
-            // Authenticate the candidate key using GCM's constant-time tag check.
-            // Do not reload accounts or mutate the vault during verification.
+            // ! Verify the candidate key with GCM's constant-time tag check;
+            // ! never reload accounts or mutate the vault while verifying.
             let (nonce, proof) = seal(
                 self.key.as_ref().ok_or(AuthError::Locked)?,
                 b"vault password verification",

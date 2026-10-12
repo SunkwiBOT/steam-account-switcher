@@ -5,9 +5,9 @@ fn main() {
     watch_interface();
 }
 
-/// The interface is embedded by `tauri::generate_context!`, which cargo knows
-/// nothing about: without these instructions a rebuilt `ui/dist` would be
-/// ignored and the binary would keep serving the previous interface.
+/// ! `tauri::generate_context!` embeds `ui/dist` without cargo knowing: without
+/// these rerun-if-changed lines a rebuilt interface is ignored and the binary
+/// keeps serving the old one.
 fn watch_interface() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../ui/dist");
     println!("cargo:rerun-if-changed={}", root.display());

@@ -46,6 +46,18 @@ export enum LinkStatus {
   NEEDS_EMAIL = "needs_email",
 }
 
+export enum ConfirmationKind {
+  TRADE = "trade",
+  MARKET = "market",
+  PHONE = "phone",
+  RECOVERY = "recovery",
+  API_KEY = "api_key",
+  FEATURE = "feature",
+  FAMILY = "family",
+  TEST = "test",
+  OTHER = "other",
+}
+
 export enum LinkConfirmKind {
   SMS = "sms",
   EMAIL = "email",

@@ -284,6 +284,7 @@
   "folder_move_label": "Déplacer vers un dossier",
   "folder_move_success": "Déplacé dans le dossier {folder}.",
   "folder_name": "Nom du dossier",
+  "folder_locked_tooltip": "Dossier en lecture seule",
   "folder_none": "Aucun dossier",
   "folder_notification": "{folder} : {message}",
   "folder_open": "Ouvrir le dossier",

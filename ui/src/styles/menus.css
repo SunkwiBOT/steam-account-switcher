@@ -28,13 +28,13 @@
 }
 
 .menu-item:hover {
-  background: #1f3a4a;
+  background: var(--menu-hover);
   border-color: var(--border-strong);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
 .menu-item.danger {
-  color: #ffb8af;
+  color: var(--error-text);
 }
 
 .menu-item.accent {
@@ -42,18 +42,18 @@
 }
 
 .menu-item.accent:hover {
-  color: #c7f08a;
+  color: var(--green-bright);
 }
 
 .menu-item.danger:hover {
-  background: #3a2020;
+  background: var(--menu-danger-hover);
   border-color: var(--danger-border);
 }
 
 .menu-item.checked {
   background: var(--button);
   border-color: var(--accent);
-  color: #ffffff;
+  color: var(--text-bright);
   font-weight: 600;
 }
 

@@ -1,4 +1,13 @@
-use super::*;
+use std::path::Path;
+use std::sync::{Arc, Mutex};
+
+use steam_core::accounts::SteamManager;
+use steam_core::error_code::ErrorCode;
+use steam_core::model::SteamInstallation;
+use steam_core::pathdetect;
+use steam_core::playtime::PlaytimeTracker;
+
+use super::{build_tracker, key_for_path, root_key, same_path, save_or_restore, AppState};
 
 impl AppState {
     pub fn reload_installations(&self) {
@@ -130,9 +139,8 @@ impl AppState {
         }
         self.reload_installations();
 
-        // Hiding the selected installation hands the selection to another one,
-        // so revealing it again must select it back. Without this the account
-        // list stays on whichever installation took over.
+        // Hiding the selected installation moved the selection elsewhere;
+        // revealing it must select it back or the list stays on the one that took over.
         if !hidden {
             let wanted = key_for_path(root);
             let index = {

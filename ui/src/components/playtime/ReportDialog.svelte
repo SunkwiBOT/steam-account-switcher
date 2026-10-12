@@ -1,5 +1,6 @@
 <script lang="ts">
   import DialogHeader from "../dialogs/DialogHeader.svelte";
+  import { focusTrap } from "../../lib/actions/focus-trap";
   import { t, rich, formatDate } from "../../lib/i18n/i18n.svelte";
 
   import {
@@ -61,6 +62,7 @@
       aria-modal="true"
       aria-labelledby={`${uid}-title`}
       tabindex="-1"
+      use:focusTrap={{ onEscape: close }}
     >
       <DialogHeader
         id={`${uid}-title`}

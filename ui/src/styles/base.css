@@ -21,6 +21,37 @@
   --danger-border: #a34b44;
   --current: #1f7a3f;
   --avatar: #2a475e;
+  --text-bright: #ffffff;
+  --surface-bright: #ffffff;
+  --surface-hover: #16202c;
+  --surface-hover-deep: #142232;
+  --menu-hover: #1f3a4a;
+  --menu-danger-hover: #3a2020;
+  --disabled-bg: #182331;
+  --disabled-text: #67707b;
+  --disabled-border: #253548;
+  --notice-bg: #182738;
+  --notice-border: #29445a;
+  --notice-text: #aeb6bf;
+  --primary-text: #f2fbe9;
+  --danger-text: #ffe5e1;
+  --danger-border-hover: #d66a60;
+  --green-bright: #c7f08a;
+  --error-text: #ffb8af;
+  --error-bg: #321b1b;
+  --error-border: #8a3c34;
+  --success-text: #dff5c8;
+  --success-bg: #1f3322;
+  --warning-text: #ffd479;
+  --warning-bg: #33280f;
+  --warning-border: #7a5c1e;
+  --caution-text: #ffd9a0;
+  --caution-border: #9f6b1f;
+  --separator: #5c6a78;
+  --scrollbar-hover: #4f7c9c;
+  --popover-shadow: #0005;
+  --avatar-outline: #ffffff1a;
+  --backdrop: rgba(8, 12, 18, 0.72);
 }
 
 * {
@@ -59,13 +90,14 @@ body {
   height: 100%;
 }
 
-.app,
-.app-content {
+.app {
   display: flex;
   flex-direction: column;
 }
 
 .app-content {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -95,5 +127,5 @@ img {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #4f7c9c;
+  background: var(--scrollbar-hover);
 }

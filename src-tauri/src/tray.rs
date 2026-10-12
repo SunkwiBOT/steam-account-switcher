@@ -8,12 +8,11 @@ use crate::state::AppState;
 pub const TRAY_ID: &str = "steam-account-switcher-tray";
 const ACCOUNT_PREFIX: &str = "account:";
 
-/// The tray menu handle, kept because Tauri can only replace a tray menu on
-/// Windows and macOS: on Linux the existing menu has to be edited in place.
+/// ! Tauri can only replace a tray menu on Windows and macOS; on Linux the
+/// existing menu must be edited in place, so its handle is kept.
 pub struct TrayMenu(pub Mutex<Option<Menu<tauri::Wry>>>);
 
-/// Creates the tray icon and reports whether it exists: without it the window
-/// must not hide, or the application would be unreachable.
+/// Reports whether the icon exists: the window must not hide without one.
 pub fn install(app: &AppHandle) -> tauri::Result<bool> {
     let menu = build_menu(app)?;
     app.manage(TrayMenu(Mutex::new(Some(menu.clone()))));
@@ -84,10 +83,10 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         .build()
 }
 
-/// Queues the menu update on the main thread instead of waiting for it: each
-/// menu call blocks until the main thread runs it, so a caller that holds a
-/// lock (the playtime thread, or a command holding AppState) would deadlock
-/// against a main-thread handler that is waiting for the same lock.
+/// ! Queued on the main thread, never awaited: menu calls block until the main
+/// thread runs them, so a caller holding a lock (the playtime thread, a command
+/// holding AppState) would deadlock against a main-thread handler waiting for
+/// that same lock.
 pub fn refresh_menu(app: &AppHandle) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || update_menu(&handle));
@@ -216,9 +215,8 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
                 return;
             }
 
-            // The tray never switches on its own: it brings the window forward
-            // and lets the interface ask for a confirmation, so both paths
-            // behave exactly the same.
+            // The tray never switches on its own: the interface asks for the
+            // confirmation, so both paths behave the same.
             crate::show_main_window(app);
             let _ = app.emit("switch-requested", steam_id);
         }

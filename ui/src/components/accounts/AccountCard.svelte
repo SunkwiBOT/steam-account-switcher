@@ -36,12 +36,16 @@
   );
 </script>
 
+<!-- A group rather than a button: it holds buttons of its own. Enter opens the
+     details; switching stays on double-click and in the context menu. -->
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
   class="card"
   class:current={entry.is_current}
   class:has-folder={Boolean(folder)}
   class:switching
-  role="button"
+  role="group"
   tabindex="0"
   aria-label={hidden ? t.common_hidden_value() : entry.display_name}
   title={entry.is_local ? t.account_card_tooltip() : t.guard_saved_card_tooltip()}
@@ -56,14 +60,9 @@
   }}
   oncontextmenu={(event) => openAccountMenu(event, entry.steam_id)}
   onkeydown={(event) => {
-    if (event.target !== event.currentTarget) return;
-    if (event.key === "Enter") {
-      app.openAccountId = entry.steam_id;
-    } else if (event.key === " ") {
-      event.preventDefault();
-      if (entry.is_local) void switchAccount(entry.steam_id);
-      else app.openAccountId = entry.steam_id;
-    }
+    if (event.target !== event.currentTarget || event.key !== "Enter") return;
+    event.preventDefault();
+    app.openAccountId = entry.steam_id;
   }}
 >
   {#if entry.color}

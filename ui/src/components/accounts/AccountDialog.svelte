@@ -1,5 +1,6 @@
 <script lang="ts">
   import DialogHeader from "../dialogs/DialogHeader.svelte";
+  import { focusTrap } from "../../lib/actions/focus-trap";
   import { t, formatDate, relativeDate } from "../../lib/i18n/i18n.svelte";
 
   import { formatSeconds } from "../../lib/api/api";
@@ -52,12 +53,17 @@
   );
 
   let rating = $state<string | number>("");
+  //! Every snapshot re-derives `entry`; only a change of account or of the
+  //! stored rank may replace what is being typed.
+  let syncedRank = $state<string | null>(null);
 
   $effect(() => {
     const value = entry?.rank;
-    if (value !== undefined) {
-      rating = value === UNRANKED ? "" : String(value).replace(/[^0-9]/g, "");
-    }
+    if (value === undefined) return;
+    const key = `${app.openAccountId}:${value}`;
+    if (key === syncedRank) return;
+    syncedRank = key;
+    rating = value === UNRANKED ? "" : String(value).replace(/[^0-9]/g, "");
   });
 
   const ratingDigits = $derived(String(rating ?? "").replace(/[^0-9]/g, ""));
@@ -157,6 +163,7 @@
       aria-modal="true"
       aria-labelledby={`${uid}-title`}
       tabindex="-1"
+      use:focusTrap={{ onEscape: close }}
     >
       <DialogHeader
         id={`${uid}-title`}

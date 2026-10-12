@@ -13,8 +13,7 @@ serde_json = { workspace = true }
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 time = { version = "0.3", default-features = false, features = ["local-offset", "formatting", "parsing", "macros"] }
 
-# Steam Guard authenticator: mobile confirmations, 2FA codes and account
-# linking. The library crate is MIT/Apache-2.0, only the CLI next to it is
+# ! The steamguard library crate is MIT/Apache-2.0; only the CLI next to it is
 # GPL, so it can be linked from this MIT project.
 steamguard = "0.18"
 reqwest = { version = "0.12", default-features = false, features = [

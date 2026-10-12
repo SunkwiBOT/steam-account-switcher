@@ -88,7 +88,7 @@
 
 .card:hover {
   z-index: 2;
-  background: #16202c;
+  background: var(--surface-hover);
   border-color: var(--border-strong);
 }
 
@@ -128,8 +128,8 @@
 }
 
 .card-folder svg {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
 }
 
 .card-badge {
@@ -140,7 +140,7 @@
   padding: 1px 7px;
   border-radius: 8px;
   background: var(--current);
-  color: #ffffff;
+  color: var(--text-bright);
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
@@ -181,8 +181,8 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 26px;
-  height: 26px;
+  width: 25px;
+  height: 25px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -205,7 +205,7 @@
 .card-view:hover {
   background: var(--button);
   border-color: var(--accent);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
 .card-copy {
@@ -221,7 +221,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 5px;
+  gap: 2px;
   flex: 1 1 auto;
   min-width: 0;
   margin-left: auto;
@@ -252,9 +252,23 @@
   object-fit: contain;
 }
 
-.folder-card,
-.back-card {
+.folder-card {
   justify-content: flex-start;
+}
+
+.card-lock {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  color: var(--muted);
 }
 
 .back-card {

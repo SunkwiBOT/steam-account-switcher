@@ -1,4 +1,13 @@
-use super::*;
+use std::collections::BTreeMap;
+use std::path::PathBuf;
+
+use rusqlite::{Connection, Transaction};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use steam_core::error_code::ErrorCode;
+use steam_core::storage::Database;
+
+use super::{Folder, Settings};
 
 pub struct SettingsStore {
     database: Database,

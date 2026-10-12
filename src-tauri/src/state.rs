@@ -13,7 +13,6 @@ use steam_core::accounts::SteamManager;
 use steam_core::authenticator::Authenticator;
 use steam_core::metadata::RankStore;
 use steam_core::model::{SteamAccount, SteamInstallation};
-use steam_core::pathdetect;
 use steam_core::playtime::{system_clock, AccountProvider, PlaytimeTracker, ProbeRef};
 use steam_core::processes::ProcessMonitor;
 use steam_core::storage::Database;
@@ -60,8 +59,8 @@ pub struct AppState {
     pub database: Database,
     inner: Mutex<Inner>,
     snapshot_revision: AtomicU64,
-    /// Steam Guard secrets and the interactive login/link sessions. Kept in its
-    /// own mutex so a long network call never blocks the account list.
+    /// ! Steam Guard secrets and the login/link sessions, in their own mutex so
+    /// a long network call never blocks the account list.
     authenticator: Arc<Mutex<Authenticator>>,
     window_active: AtomicBool,
     tray_available: AtomicBool,
@@ -135,15 +134,26 @@ pub fn key_for_path(path: &str) -> String {
         .to_string()
 }
 
-/// The app cannot run without its database: a session that could not save a new
-/// Steam Guard secret would lose it on restart, so startup stops instead.
+/// ! Startup stops without the database: running on would lose a newly saved
+/// Steam Guard secret on restart, and the file must stay untouched so a build
+/// with the matching schema can still open it.
 fn open_database() -> Database {
-    let opened = Database::open(&crate::settings::database_path())
-        .expect("the application database must open");
-    if opened.moved_aside.is_some() {
-        crate::logging::write(
-            "action=open_database status=recovered category=database_unreadable backup=steam-account-switcher.db.bak",
-        );
+    let opened = match Database::open(&crate::settings::database_path()) {
+        Ok(opened) => opened,
+        Err(error) => {
+            // No window or panic hook yet: log the reason, then stop.
+            crate::logging::write(&format!("action=open_database status=failed code={error}"));
+            std::process::exit(1);
+        }
+    };
+    if let Some(backup) = &opened.moved_aside {
+        let name = backup
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        crate::logging::write(&format!(
+            "action=open_database status=recovered category=database_corrupt backup={name}"
+        ));
     }
     opened.database
 }

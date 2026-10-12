@@ -1,4 +1,10 @@
-use super::*;
+use steam_core::authenticator::{AuthError, LinkStart};
+use steam_core::error_code::ErrorCode;
+use tauri::State;
+
+use super::vault::vault_snapshot;
+use crate::commands::SnapshotDto;
+use crate::state::AppState;
 
 #[tauri::command]
 pub async fn steam_guard_link_start(

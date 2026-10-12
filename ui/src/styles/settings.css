@@ -21,7 +21,7 @@
 }
 
 .settings-row:hover {
-  background: #16202c;
+  background: var(--surface-hover);
 }
 
 .settings-row.hidden-entry .settings-label {
@@ -52,8 +52,8 @@
 }
 
 .tag.hidden {
-  border-color: #9f6b1f;
-  color: #ffd9a0;
+  border-color: var(--caution-border);
+  color: var(--caution-text);
 }
 
 .settings-row button {

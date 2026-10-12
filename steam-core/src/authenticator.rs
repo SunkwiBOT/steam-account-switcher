@@ -3,24 +3,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::storage::Database;
 use aes_gcm::aead::{rand_core::RngCore, OsRng};
 use base64::Engine as _;
-use serde::{Deserialize, Serialize};
-use steamguard::accountlinker::AccountLinkConfirmType;
-use steamguard::protobufs::steammessages_auth_steamclient::{
-    EAuthSessionGuardType, EAuthTokenPlatformType,
-};
-use steamguard::refresher::TokenRefresher;
-use steamguard::steamapi::{ApiRequest, ApiResponse, AuthenticationClient, BuildableRequest};
 use steamguard::token::Tokens;
-use steamguard::transport::{Transport, TransportError, WebApiTransport};
-use steamguard::userlogin::{DeviceDetails, UserLogin};
-use steamguard::{AccountLinker, Confirmation, Confirmer, ConfirmerError, SteamGuardAccount};
-
-use zeroize::Zeroizing;
+use steamguard::transport::WebApiTransport;
+use steamguard::userlogin::UserLogin;
+use steamguard::{AccountLinker, SteamGuardAccount};
 
 pub const CODE_PERIOD_SECONDS: u64 = 30;
 
@@ -208,8 +198,8 @@ impl Authenticator {
     }
 
     pub fn remember_tokens(&mut self, account: &SteamGuardAccount) -> Result<(), AuthError> {
-        // A lock or removal while the request was in flight must not restore
-        // secrets. A newer login must not be overwritten by an older response.
+        // ! A lock or removal while the request was in flight must not restore
+        // ! secrets, and an older response must not overwrite a newer login.
         if self.vault.locked {
             return Ok(());
         }
@@ -360,8 +350,8 @@ impl Authenticator {
         })
     }
 
-    /// Checks the vault is writable before making a remote change, and copies
-    /// the pending material so network requests never hold the store mutex.
+    /// ! Checks the vault is writable before making a remote change, and copies
+    /// ! the pending material out: network requests never hold the store mutex.
     pub fn prepare_link(
         &mut self,
         steam_id: u64,
@@ -372,8 +362,9 @@ impl Authenticator {
         if !self.active_links.is_empty() {
             return Err(AuthError::Busy);
         }
-        // A disk error after AddAuthenticator keeps this session and its
-        // secrets in memory. Retrying first saves them, then resumes it.
+        // ! A disk error after AddAuthenticator keeps this session and its
+        // ! secrets in memory; a retry must save and resume it, never start a
+        // ! new link, or the only copy of the secret is lost.
         if let Some(session_id) = self
             .linkers
             .iter()

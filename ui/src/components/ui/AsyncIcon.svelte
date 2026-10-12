@@ -9,7 +9,7 @@
   let { icon: Icon = LoaderCircle, busy = true, size = 15 }: AsyncIconPropsType = $props();
 </script>
 
-<!-- Rotate an HTML wrapper; SVG transforms behave differently across webviews. -->
+<!-- ! Rotate the HTML wrapper, not the SVG: SVG transforms behave differently across webviews. -->
 <span class="action-icon" class:icon-spin={busy} aria-hidden="true"
   >{#if busy}<LoaderCircle {size} />{:else}<Icon {size} />{/if}</span
 >

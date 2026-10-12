@@ -110,7 +110,7 @@
 
 .rank-picker:hover:not(:disabled) {
   border-color: var(--accent);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
 .rank-picker:disabled {
@@ -217,7 +217,7 @@
 }
 
 .color-swatch.active {
-  border-color: #ffffff;
+  border-color: var(--surface-bright);
 }
 
 .color-swatch.none {
@@ -257,7 +257,7 @@
 }
 
 .icon-choice.active {
-  border-color: #ffffff;
+  border-color: var(--surface-bright);
 }
 
 .folder-row-icon {
@@ -294,8 +294,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 25px;
+  height: 25px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 4px;
@@ -317,8 +317,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 25px;
+  height: 25px;
   padding: 0;
   background: transparent;
   border: 1px solid transparent;
@@ -330,7 +330,7 @@
 .copy-button:hover:not(:disabled) {
   background: var(--button);
   border-color: var(--border-strong);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
 .copy-button:focus-visible {
@@ -457,7 +457,7 @@
   border: 1px solid var(--border-strong);
   border-radius: 4px;
   background: var(--base);
-  box-shadow: 0 8px 24px #0005;
+  box-shadow: 0 8px 24px var(--popover-shadow);
 }
 .identifiers-popover .identifiers-toolbar {
   padding-top: 8px;
@@ -473,7 +473,7 @@
 .account-caption .avatar {
   flex: 0 0 auto;
   font-size: 12px;
-  outline: 1px solid #ffffff1a;
+  outline: 1px solid var(--avatar-outline);
 }
 .account-caption > span {
   overflow: hidden;

@@ -1,4 +1,11 @@
-use super::*;
+use super::{ProcessFacts, DISCOVERY_READ_SIZE, LOG_HEAD_SIZE};
+use crate::error::{Result, SteamError};
+use crate::util::local_wall_clock_to_unix;
+use std::collections::BTreeMap;
+use std::fs::File;
+use std::io::{Read, Seek, SeekFrom};
+use std::path::Path;
+use time::PrimitiveDateTime;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EventKind {
@@ -86,9 +93,8 @@ pub(super) fn probe_event_process(
         return facts;
     }
 
-    // Steam wrote the launch event long before this instance started, so a
-    // process that exists now with a very different start time is a reused
-    // pid and must not be attributed to this session.
+    // A live process whose start time is far from the launch event is a reused
+    // pid, not this session's game.
     match facts.start_time {
         Some(created_at) if (created_at - event.timestamp).abs() > 180.0 => ProcessFacts {
             running: false,
@@ -133,7 +139,7 @@ pub(super) fn recent_game_events(log_path: &Path) -> Result<Vec<GameProcessEvent
     Ok(events)
 }
 
-/// A read-only check independent of playtime tracking; child processes must not hide a still-running game.
+/// Read-only check independent of playtime tracking.
 pub fn running_game_events(
     log_path: &Path,
     probe: &dyn Fn(u32) -> ProcessFacts,
@@ -158,8 +164,7 @@ pub fn running_game_events(
         .collect())
 }
 
-/// Steam writes `..., exit code 0` on most platforms. The value is kept so the
-/// session history can explain *how* a game ended.
+/// Steam writes `..., exit code 0` on most platforms.
 pub(super) fn parse_exit_code(rest: &str) -> Option<i32> {
     let marker = rest.find("exit code ")?;
     let value = &rest[marker + "exit code ".len()..];
@@ -183,10 +188,9 @@ pub(super) fn take_number(input: &str) -> Option<(&str, &str)> {
 pub(super) fn parse_log_timestamp(value: &str) -> Option<f64> {
     let format = time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
     let primitive = PrimitiveDateTime::parse(value, &format).ok()?;
-    Some(primitive.assume_offset(local_offset()).unix_timestamp() as f64)
+    Some(local_wall_clock_to_unix(primitive) as f64)
 }
 
-/// Reads the first bytes of the log, leaving the cursor at the start.
 pub(super) fn read_head(handle: &mut File) -> std::io::Result<Vec<u8>> {
     handle.seek(SeekFrom::Start(0))?;
     let mut head = Vec::new();

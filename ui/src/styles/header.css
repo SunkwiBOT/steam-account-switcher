@@ -57,7 +57,7 @@
 .app-header .icon-button:hover:not(:disabled) {
   background: var(--button);
   border-color: var(--accent);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
 .search-wrap {
@@ -119,7 +119,7 @@
 
 .crumb:hover {
   background: var(--base-alt);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
 .crumb.current {
@@ -128,5 +128,5 @@
 }
 
 .crumb-sep {
-  color: #5c6a78;
+  color: var(--separator);
 }

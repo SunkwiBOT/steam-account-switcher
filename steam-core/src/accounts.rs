@@ -154,10 +154,9 @@ impl SteamManager {
         autologin::write_auto_login(&self.installation, account_name)
     }
 
-    /// Writes the auto-login account and reads it back.
-    ///
-    /// A write that silently does not stick (immutable file, redirected folder)
-    /// would otherwise surface as "Steam logged into the wrong account".
+    /// Writes the auto-login account and reads it back: a write that silently
+    /// does not stick would otherwise surface as Steam logging into the wrong
+    /// account.
     pub fn set_auto_login_user_verified(&self, account_name: &str) -> Result<()> {
         self.set_auto_login_user(account_name)?;
         let stored = self.auto_login_user()?;
@@ -175,7 +174,8 @@ impl SteamManager {
         ];
 
         let mut names = vec![steam_id.to_string()];
-        // The login name comes from a file Steam rewrites, so it must not add path separators.
+        // ! The login name comes from a file Steam rewrites: never join it as a
+        // ! path unless it is a plain file name.
         if is_plain_file_name(account_name) {
             names.push(account_name.to_string());
         }
@@ -339,9 +339,8 @@ impl SteamManager {
             .find_account(identifier)?
             .ok_or_else(|| SteamError::config(ErrorCode::AccountUnavailable))?;
 
-        // Steam keeps loginusers.vdf in memory and rewrites it when it exits,
-        // so editing the file while the client runs silently resurrects the
-        // entry. Stop Steam first.
+        // ! Steam keeps loginusers.vdf in memory and rewrites it on exit, so
+        // ! editing it while the client runs silently resurrects the entry.
         if self.processes.is_running() {
             self.processes
                 .terminate(&self.installation, std::time::Duration::from_secs(30))?;
@@ -370,8 +369,10 @@ impl SteamManager {
     }
 
     pub fn remove_userdata(&self, steam_id: &str) -> Result<()> {
-        // Steam's userdata directories use the low 32-bit account ID, while
-        // loginusers.vdf keys contain the full 64-bit Steam ID.
+        // ! Steam's userdata folders use the low 32-bit account ID while
+        // ! loginusers.vdf keys hold the 64-bit Steam ID. An ID that does not
+        // ! convert cleanly, or a target outside userdata, is refused: this
+        // ! deletes a directory tree.
         const INDIVIDUAL_BASE: u64 = 76_561_197_960_265_728;
         let account_id = steam_id
             .parse::<u64>()

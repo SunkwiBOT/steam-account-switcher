@@ -1,4 +1,6 @@
-use super::*;
+use crate::error_code::ErrorCode;
+use steamguard::transport::TransportError;
+use steamguard::ConfirmerError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AuthError {

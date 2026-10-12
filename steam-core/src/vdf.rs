@@ -35,8 +35,8 @@ impl VdfValue {
     }
 }
 
-/// Lookups are case-insensitive because Steam is not consistent about key
-/// casing between client versions and platforms.
+/// ! Lookups are case-insensitive: Steam is not consistent about key casing
+/// ! between client versions and platforms.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct VdfObject {
     entries: Vec<(String, VdfValue)>,
@@ -209,8 +209,7 @@ fn tokenize(input: &str) -> Result<Vec<Token>, VdfError> {
             continue;
         }
 
-        // Steam's own files use "//" comments; keep supporting them so hand
-        // edited configs do not break the parser.
+        // Steam's own files use "//" comments.
         if current == b'/' && bytes.get(index + 1) == Some(&b'/') {
             match input[index..].find('\n') {
                 Some(offset) => index += offset + 1,
@@ -318,9 +317,9 @@ fn parse_object(tokens: &[Token], cursor: &mut usize, nested: bool) -> Result<Vd
         }
     }
 
-    // Steam's files have no root brace: the top level legitimately ends at the
-    // end of the file. A nested object that never closes means the file was cut,
-    // and accepting it would let the next write drop the lost accounts.
+    // ! Steam's files have no root brace, so only the top level may end at end
+    // ! of input. An unclosed nested object means the file was cut; accepting
+    // ! it would let the next write drop the lost accounts.
     if nested {
         return Err(VdfError::at(*cursor, "unexpected end of input"));
     }

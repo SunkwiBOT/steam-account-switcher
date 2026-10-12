@@ -121,19 +121,13 @@
     busy = true;
     try {
       if (exporting) {
-        const chosen = await invokePlugin("plugin:dialog|save", {
-          options: {
-            title: t.backup_export_title(),
-            defaultPath: `steam-guard.${BACKUP_EXTENSION}`,
-            filters: [{ name: t.backup_file_filter(), extensions: [BACKUP_EXTENSION] }],
-          },
-        });
-        if (app.backup !== current || typeof chosen !== "string") return;
+        //! The backend opens the "save as" dialog itself, so the page never
+        //! decides where secrets are written.
         const count = await invoke("steam_guard_export_backup", {
           steamId: current.steamId,
-          path: chosen,
           password: protection === BackupProtection.PASSWORD ? password : null,
         });
+        if (app.backup !== current || count === null) return;
         showToast(
           account
             ? rich(t.backup_export_account_success, { account: account.display_name })

@@ -14,8 +14,7 @@
   );
 
   import { AlertTriangle, ArrowRightLeft, Check, Play, Trash2, UserPlus, X } from "@lucide/svelte";
-  import { untrack } from "svelte";
-  import { cycleFocusIndex } from "../../lib/state/keyboard";
+  import { focusTrap } from "../../lib/actions/focus-trap";
 
   const ActionIcon = $derived(
     {
@@ -36,37 +35,6 @@
     }
   });
   const uid = $props.id();
-
-  let dialog = $state<HTMLDivElement | null>(null);
-  let cancelButton = $state<HTMLButtonElement | null>(null);
-
-  // Focus starts on the safe choice, stays inside the dialog while open, and
-  // returns to the control that opened it when the dialog closes.
-  $effect(() => {
-    const element = dialog;
-    if (!element) return;
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    untrack(() => cancelButton)?.focus();
-    const trapFocus = (event: KeyboardEvent): void => {
-      if (event.key !== "Tab") return;
-      const focusable = [
-        ...element.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled)"),
-      ];
-      const next = cycleFocusIndex(
-        focusable.findIndex((item) => item === document.activeElement),
-        focusable.length,
-        event.shiftKey,
-      );
-      if (next < 0) return;
-      event.preventDefault();
-      focusable[next]?.focus();
-    };
-    element.addEventListener("keydown", trapFocus);
-    return () => {
-      element.removeEventListener("keydown", trapFocus);
-      previous?.focus();
-    };
-  });
 </script>
 
 {#if confirmDialog.open}
@@ -78,7 +46,7 @@
       aria-modal="true"
       aria-labelledby={`${uid}-title`}
       tabindex="-1"
-      bind:this={dialog}
+      use:focusTrap={{ onEscape: () => answerConfirm(null) }}
     >
       <DialogHeader id={`${uid}-title`} title={confirmDialog.title} icon={ActionIcon} />
       {#if entry && !inlineAccount}<p class="dialog-text">
@@ -95,11 +63,10 @@
         </label>
       {/if}
       <footer class="dialog-foot">
-        <button
-          class="button"
-          type="button"
-          bind:this={cancelButton}
-          onclick={() => answerConfirm(null)}><X size={15} /> {t.common_cancel()}</button
+        <!-- Focus starts on the safe choice. -->
+        <!-- svelte-ignore a11y_autofocus -->
+        <button class="button" type="button" autofocus onclick={() => answerConfirm(null)}
+          ><X size={15} /> {t.common_cancel()}</button
         >
         <button
           class="button"

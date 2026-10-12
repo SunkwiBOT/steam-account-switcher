@@ -1,5 +1,6 @@
 <script lang="ts">
   import DialogHeader from "../dialogs/DialogHeader.svelte";
+  import { focusTrap } from "../../lib/actions/focus-trap";
   import { errorMessage } from "../../lib/errors/errors.svelte";
   import { t, rich } from "../../lib/i18n/i18n.svelte";
 
@@ -30,13 +31,16 @@
 
 {#if app.steamGuardOpen && entry}
   <div class="modal" inert={app.vaultOpen}>
-    <div class="modal-backdrop"></div>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="modal-backdrop" onclick={controller.close}></div>
     <div
       class="dialog steamguard-dialog"
       role="dialog"
       aria-modal="true"
       aria-labelledby={`${uid}-title`}
       tabindex="-1"
+      use:focusTrap={{ onEscape: controller.close }}
     >
       <DialogHeader
         id={`${uid}-title`}

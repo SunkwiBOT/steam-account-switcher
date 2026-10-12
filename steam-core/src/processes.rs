@@ -30,8 +30,8 @@ fn is_steam_process(name: &str) -> bool {
     })
 }
 
-/// `steam -shutdown` runs as a `steam` process of its own, and stays alive
-/// after the client is gone. It is a request, not a client.
+/// ! `steam -shutdown` runs as a `steam` process of its own and outlives the
+/// ! client; counting it as a client would make the shutdown never finish.
 fn is_shutdown_request(process: &sysinfo::Process) -> bool {
     process.cmd().iter().any(|argument| argument == "-shutdown")
 }
@@ -205,8 +205,8 @@ fn detach(command: &mut Command) {
     command.creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS);
 }
 
-/// Inherited AppImage libraries and GIO modules break the Steam Linux Runtime's
-/// host Python. Remove these launcher variables before starting Steam.
+/// ! Inherited AppImage libraries and GIO modules break the Steam Linux
+/// ! Runtime's host Python, so these launcher variables must not reach Steam.
 const APPIMAGE_VARIABLES: [&str; 19] = [
     "APPDIR",
     "APPIMAGE",
@@ -303,10 +303,9 @@ fn run_detached_process(command: &[String]) -> Result<Child> {
         .map_err(|error| SteamError::io(format!("Unable to launch Steam ({program})"), error))
 }
 
-/// The `steam` launcher hands its command line to an already running client
-/// and exits, so a launch issued while the previous client is still closing
-/// silently does nothing. Retrying covers that window instead of leaving the
-/// user in front of a switcher that looks stuck.
+/// ! The `steam` launcher hands its command line to an already running client
+/// ! and exits, so a launch issued while the previous client is still closing
+/// ! silently does nothing; the retries cover that window.
 pub fn launch_steam_verified(installation: &SteamInstallation) -> Result<()> {
     if installation.launch_command.is_empty() {
         return Err(SteamError::config(ErrorCode::SteamStartFailed));
@@ -340,10 +339,10 @@ fn wait_for_client(monitor: &mut ProcessMonitor, timeout: Duration) -> bool {
     }
 }
 
-/// `steam -shutdown` is not always forwarded to the running client: when it is
-/// not, the launcher starts a whole client that verifies the installation for
-/// half a minute before the shutdown happens. The runtime helper talks to the
-/// client through its pipe and exits immediately, so prefer it.
+/// ! `steam -shutdown` is not always forwarded to the running client: when it
+/// ! is not, the launcher starts a whole client that verifies the installation
+/// ! for half a minute first. The runtime helper talks to the client through
+/// ! its pipe and exits immediately, so it is preferred.
 fn request_shutdown_process(installation: &SteamInstallation) -> Option<Child> {
     if installation.launch_command.is_empty() {
         return None;

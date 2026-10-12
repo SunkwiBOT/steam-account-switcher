@@ -81,6 +81,7 @@ pub enum ErrorCode {
     WrongSteamPassword,
     WrongGuardCode,
     SteamRateLimited,
+    DatabaseVersionMismatch,
 
     SteamInstallationReady,
 }
@@ -167,6 +168,7 @@ impl ErrorCode {
             Self::WrongSteamPassword => "WRONG_STEAM_PASSWORD",
             Self::WrongGuardCode => "WRONG_GUARD_CODE",
             Self::SteamRateLimited => "STEAM_RATE_LIMITED",
+            Self::DatabaseVersionMismatch => "DATABASE_VERSION_MISMATCH",
             Self::SteamInstallationReady => "STEAM_INSTALLATION_READY",
         }
     }
@@ -252,6 +254,7 @@ impl ErrorCode {
             "WRONG_STEAM_PASSWORD" => Some(Self::WrongSteamPassword),
             "WRONG_GUARD_CODE" => Some(Self::WrongGuardCode),
             "STEAM_RATE_LIMITED" => Some(Self::SteamRateLimited),
+            "DATABASE_VERSION_MISMATCH" => Some(Self::DatabaseVersionMismatch),
             "STEAM_INSTALLATION_READY" => Some(Self::SteamInstallationReady),
             _ => None,
         }

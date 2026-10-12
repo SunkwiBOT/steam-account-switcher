@@ -1,4 +1,9 @@
-use super::*;
+use steam_core::authenticator::{AuthError, Authenticator, StoredAuthenticator, VaultStatus};
+use steam_core::error_code::ErrorCode;
+use tauri::State;
+
+use crate::commands::{build_snapshot, SnapshotDto};
+use crate::state::AppState;
 
 pub(super) fn vault_snapshot(state: &AppState) -> SnapshotDto {
     let snapshot = build_snapshot(state);
@@ -41,7 +46,7 @@ async fn update_vault(
     })
     .await
     .map_err(|_| ErrorCode::WorkerFailed.to_string())??;
-    // The blocking closure released its guard before snapshot takes it again.
+    // ! vault_snapshot locks the authenticator again: keep it outside the blocking closure.
     let snapshot = vault_snapshot(state);
     if snapshot.vault.status.encrypted && !snapshot.vault.status.locked {
         state.note_vault_unlocked();

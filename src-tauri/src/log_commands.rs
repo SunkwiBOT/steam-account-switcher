@@ -1,4 +1,4 @@
-//! Access to the application's own diagnostics, never arbitrary filesystem paths.
+//! ! Access to the application's own diagnostics, never arbitrary filesystem paths.
 
 use steam_core::error_code::ErrorCode;
 use tauri_plugin_opener::OpenerExt;

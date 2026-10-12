@@ -6,9 +6,8 @@ Exec={{exec}}{{#if exec_arg}} {{exec_arg}}{{/if}}
 Icon={{icon}}
 Terminal=false
 Categories={{categories}}
-# Matches `mainBinaryName` and the GTK program name, which is how the window is
-# paired with this entry. It must not contain a dash: KDE's icon loader cuts an
-# icon name at its first dash, so "steam-account-switcher" would resolve to the
-# Steam client's own icon in themes that ship one.
-StartupWMClass=accountswitcher
+# ! Matches the GTK program name set in main.rs, which is also the Wayland app
+# id and the name of this file; the icon name stays "accountswitcher" because
+# KDE cuts icon names at the first dash and "steam-..." would give Steam's icon.
+StartupWMClass=Steam Account Switcher
 StartupNotify=true

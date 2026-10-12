@@ -48,9 +48,9 @@
   z-index: 100;
   padding: 9px 14px;
   border-radius: 4px;
-  border: 1px solid #8a3c34;
-  background: #321b1b;
-  color: #ffb8af;
+  border: 1px solid var(--error-border);
+  background: var(--error-bg);
+  color: var(--error-text);
   max-width: 70vw;
 }
 
@@ -66,6 +66,6 @@
 
 .toast.ok {
   border-color: var(--primary);
-  background: #1f3322;
-  color: #dff5c8;
+  background: var(--success-bg);
+  color: var(--success-text);
 }

@@ -14,7 +14,14 @@
 .modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(8, 12, 18, 0.72);
+  background: var(--backdrop);
+}
+
+/* Native dialogs share the overlay of the div-based modals. */
+.backup-dialog::backdrop,
+.folder-editor::backdrop,
+.vault-password-dialog::backdrop {
+  background: var(--backdrop);
 }
 
 .dialog {
@@ -49,10 +56,6 @@
   display: none;
 }
 
-.backup-dialog::backdrop {
-  background: rgba(8, 12, 18, 0.72);
-}
-
 .backup-dialog form {
   display: flex;
   flex-direction: column;
@@ -70,10 +73,6 @@
 
 .folder-editor:not([open]) {
   display: none;
-}
-
-.folder-editor::backdrop {
-  background: rgba(8, 12, 18, 0.72);
 }
 
 .folder-editor-name {
@@ -177,7 +176,7 @@
 
 .icon-button:hover:not(:disabled) {
   background: var(--button);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
 .icon-button:disabled {
@@ -204,10 +203,10 @@
 .history-notice {
   margin: 0;
   padding: 7px 9px;
-  background: #182738;
-  border: 1px solid #29445a;
+  background: var(--notice-bg);
+  border: 1px solid var(--notice-border);
   border-radius: 3px;
-  color: #aeb6bf;
+  color: var(--notice-text);
 }
 
 .tabs {
@@ -230,7 +229,7 @@
 
 .tabs button:hover {
   background: var(--panel);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
 .tabs button.active {
@@ -279,18 +278,6 @@
   border-radius: 3px;
   background: var(--accent);
   transition: width 0.2s ease;
-}
-
-.checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text);
-  margin-top: 10px;
-}
-
-.checkbox input {
-  accent-color: var(--primary-border);
 }
 
 .chart {
@@ -352,7 +339,7 @@
 
 .range-group button:hover {
   background: var(--panel);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
 .range-group button.active {

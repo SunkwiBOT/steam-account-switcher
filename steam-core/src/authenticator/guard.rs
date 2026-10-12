@@ -1,4 +1,11 @@
-use super::*;
+use super::errors::{confirmation_error, steam_error, AuthError};
+use super::transport::transport;
+use super::types::{ConfirmationItem, ConfirmationKind};
+use steamguard::refresher::TokenRefresher;
+use steamguard::steamapi::AuthenticationClient;
+use steamguard::transport::TransportError;
+use steamguard::{Confirmation, Confirmer, ConfirmerError, SteamGuardAccount};
+use zeroize::Zeroizing;
 
 pub(super) fn with_valid_tokens<T>(
     account: &mut SteamGuardAccount,
@@ -78,20 +85,20 @@ pub(super) fn refresh_tokens(account: &mut SteamGuardAccount) -> Result<(), Auth
 
 pub(super) fn confirmation_item(confirmation: &Confirmation) -> ConfirmationItem {
     let kind = match confirmation.conf_type {
-        steamguard::ConfirmationType::Trade => "trade",
-        steamguard::ConfirmationType::MarketSell => "market",
-        steamguard::ConfirmationType::PhoneNumberChange => "phone",
-        steamguard::ConfirmationType::AccountRecovery => "recovery",
-        steamguard::ConfirmationType::ApiKeyCreation => "api_key",
-        steamguard::ConfirmationType::FeatureOptOut => "feature",
-        steamguard::ConfirmationType::JoinSteamFamily => "family",
-        steamguard::ConfirmationType::Test => "test",
-        steamguard::ConfirmationType::Unknown(_) => "other",
+        steamguard::ConfirmationType::Trade => ConfirmationKind::Trade,
+        steamguard::ConfirmationType::MarketSell => ConfirmationKind::Market,
+        steamguard::ConfirmationType::PhoneNumberChange => ConfirmationKind::Phone,
+        steamguard::ConfirmationType::AccountRecovery => ConfirmationKind::Recovery,
+        steamguard::ConfirmationType::ApiKeyCreation => ConfirmationKind::ApiKey,
+        steamguard::ConfirmationType::FeatureOptOut => ConfirmationKind::Feature,
+        steamguard::ConfirmationType::JoinSteamFamily => ConfirmationKind::Family,
+        steamguard::ConfirmationType::Test => ConfirmationKind::Test,
+        steamguard::ConfirmationType::Unknown(_) => ConfirmationKind::Other,
     };
     ConfirmationItem {
         id: confirmation.id.clone(),
         nonce: confirmation.nonce.clone(),
-        kind: kind.to_string(),
+        kind,
         headline: confirmation.headline.clone(),
         summary: confirmation.summary.join("\n"),
         creator_id: confirmation.creator_id.clone(),

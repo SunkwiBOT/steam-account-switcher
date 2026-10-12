@@ -1,7 +1,8 @@
 import type { Language } from "../i18n/i18n.constants";
 import type { GuardKind } from "../steam-guard/steam-guard.constants";
 import type { SearchScope, UpdateInterval, VaultLockInterval } from "../state/state.constants";
-import { ErrorApiMessage } from "../errors/errors.constants";
+import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+import { listen as tauriListen } from "@tauri-apps/api/event";
 
 import type {
   AppInfoType,
@@ -23,28 +24,10 @@ import type {
 
 export type UnlistenFnType = () => void;
 
-type TauriGlobalType = {
-  core: {
-    invoke(command: string, args?: Record<string, unknown>): Promise<unknown>;
-  };
-  event: {
-    listen(name: string, handler: (event: { payload: unknown }) => void): Promise<UnlistenFnType>;
-  };
-};
-
-declare global {
-  interface Window {
-    __TAURI__?: TauriGlobalType;
-  }
-}
-
-const bridge = (): TauriGlobalType => {
-  const api = window.__TAURI__;
-  if (!api) {
-    throw new Error(ErrorApiMessage.UNKNOWN_ERROR);
-  }
-  return api;
-};
+/** ! Goes through the bundled API module, never a global: a script injected
+ *  into the page cannot reach `invoke` from `window`. */
+const call = (command: string, args?: Record<string, unknown>): Promise<unknown> =>
+  tauriInvoke(command, args);
 
 export type CommandsType = {
   logs_snapshot: { args: { previous: boolean }; result: LogSnapshotType };
@@ -113,9 +96,11 @@ export type CommandsType = {
     args: { steamId?: string | null; path: string; passkey?: string | null };
     result: SnapshotType;
   };
+  /** The destination is chosen in a native dialog opened by the backend;
+   *  `null` means the dialog was cancelled. */
   steam_guard_export_backup: {
-    args: { steamId: string | null; path: string; password: string | null };
-    result: number;
+    args: { steamId: string | null; password: string | null };
+    result: number | null;
   };
   steam_guard_import_backup: {
     args: { path: string; password: string | null };
@@ -163,7 +148,7 @@ export const invoke = <K extends keyof CommandsType>(
   command: K,
   args?: CommandsType[K]["args"],
 ): Promise<CommandsType[K]["result"]> => {
-  return bridge().core.invoke(command, args as Record<string, unknown> | undefined) as Promise<
+  return call(command, args as Record<string, unknown> | undefined) as Promise<
     CommandsType[K]["result"]
   >;
 };
@@ -171,7 +156,7 @@ export const invoke = <K extends keyof CommandsType>(
 /** Calls a plugin command: the typed `invoke` above only covers the commands
  *  the application itself registers. */
 export const invokePlugin = (command: string, args?: Record<string, unknown>): Promise<unknown> => {
-  return bridge().core.invoke(command, args);
+  return call(command, args);
 };
 
 export type EventsType = {
@@ -187,5 +172,5 @@ export const listen = <K extends keyof EventsType>(
   name: K,
   handler: (event: { payload: EventsType[K] }) => void,
 ): Promise<UnlistenFnType> => {
-  return bridge().event.listen(name, handler as (event: { payload: unknown }) => void);
+  return tauriListen(name, handler as (event: { payload: unknown }) => void);
 };

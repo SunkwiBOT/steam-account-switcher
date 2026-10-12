@@ -334,7 +334,9 @@ export const updateButtonLabel = (): string => {
 
 export const downloadUpdate = async (): Promise<void> => {
   if (app.updateStage) return;
-  app.updateDialog = false;
+  // The progress dialog replaces the release notes; "Later" hides it and the
+  // header button brings it back.
+  app.updateDialog = true;
   app.updateStage = UpdateStage.DOWNLOADING;
   app.progress = { downloaded: 0, total: 0 };
 

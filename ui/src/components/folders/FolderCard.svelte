@@ -4,6 +4,7 @@
   import { openFolderMenu } from "../../lib/state/menus.svelte";
   import { app } from "../../lib/state/state.svelte";
   import SteamGuardIcon from "../steam-guard/SteamGuardIcon.svelte";
+  import { Lock } from "@lucide/svelte";
   import { folderIcon } from "../../lib/folders/folder-style";
   import type { FolderType } from "../../lib/types";
 
@@ -23,6 +24,9 @@
   onclick={() => (app.folderId = folder.id)}
   oncontextmenu={(event) => openFolderMenu(event, folder.id)}
 >
+  {#if folder.system}
+    <span class="card-lock" title={t.folder_locked_tooltip()}><Lock size={14} /></span>
+  {/if}
   <span class="folder-icon" style={folder.system ? "" : iconStyle} aria-hidden="true">
     {#if folder.system}
       <SteamGuardIcon size={32} />

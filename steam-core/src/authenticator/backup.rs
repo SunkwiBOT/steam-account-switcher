@@ -80,7 +80,8 @@ fn read_backup(path: &Path, password: Option<&str>) -> Result<BackupPayload, Aut
             if salt.len() != SALT_LENGTH || nonce.len() != NONCE_LENGTH || ciphertext.len() < 16 {
                 return Err(AuthError::InvalidBackup);
             }
-            // Version 1 fixes Argon2id parameters; files cannot request an unbounded KDF.
+            // ! Version 1 fixes the Argon2id parameters: a file must never be
+            // ! able to request its own (unbounded) KDF cost.
             let key = derive_key(password, &salt)?;
             let plaintext = Zeroizing::new(
                 open(&key, &nonce, &ciphertext).map_err(|_| AuthError::BackupDecryptionFailed)?,
@@ -212,8 +213,8 @@ impl Authenticator {
     }
 }
 
-/// Backup files hold secrets even when they are encrypted, so they are created
-/// private and synced before they replace an older export.
+/// ! Backup files hold secrets even when encrypted: created owner-only and
+/// ! synced before replacing an older export.
 fn write_private_file(path: &Path, text: &str) -> Result<(), AuthError> {
     use std::io::Write;
     let io = |error: std::io::Error| AuthError::Io(error.to_string());

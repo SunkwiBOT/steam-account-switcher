@@ -1,5 +1,6 @@
 <script lang="ts">
   import DialogHeader from "../dialogs/DialogHeader.svelte";
+  import { focusTrap } from "../../lib/actions/focus-trap";
   import { t } from "../../lib/i18n/i18n.svelte";
 
   import { answerFolderName, folderDialog } from "../../lib/state/dialogs.svelte";
@@ -21,6 +22,7 @@
       aria-modal="true"
       aria-labelledby={`${uid}-title`}
       tabindex="-1"
+      use:focusTrap={{ onEscape: () => answerFolderName(null) }}
     >
       <DialogHeader id={`${uid}-title`} title={folderDialog.title} icon={Folder} />
       <!-- svelte-ignore a11y_autofocus -->

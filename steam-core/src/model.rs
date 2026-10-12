@@ -47,7 +47,6 @@ pub struct SteamAccount {
 }
 
 impl SteamAccount {
-    /// Persona name when Steam has one, otherwise the login name.
     pub fn display_name(&self) -> &str {
         if !self.persona_name.is_empty() {
             &self.persona_name

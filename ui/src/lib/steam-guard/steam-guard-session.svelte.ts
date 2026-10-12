@@ -16,7 +16,7 @@ export const createGuardSession = (deps: GuardSessionDepsType) => {
   let error = $state<ErrorApiMessage | "">("");
   let errorField = $state(SteamGuardField.GENERAL);
 
-  // Bumped on every reset and cancel so responses from a closed or restarted session are dropped.
+  //! Bumped on every reset and cancel so responses from a closed or restarted session are dropped.
   let generation = 0;
 
   const invalidate = (): void => {

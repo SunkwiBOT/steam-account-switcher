@@ -114,7 +114,7 @@ fn main() {
         .setup(|app| {
             let previous_panic_hook = std::panic::take_hook();
             std::panic::set_hook(Box::new(move |info| {
-                // Panic payloads can also contain secrets. Keep the file safe.
+                // ! Panic payloads can contain secrets: never write them to the log.
                 logging::write("runtime: panic");
                 previous_panic_hook(info);
             }));
@@ -207,26 +207,30 @@ fn main() {
         });
 }
 
-/// Gives the window its identity: icon, `WM_CLASS` on X11 and the Wayland
-/// `app_id`. Without them a compositor has nothing to pair with the installed
-/// `.desktop` entry, so the task bar shows a generic placeholder icon.
+/// ! Sets the icon, the X11 `WM_CLASS` and the Wayland `app_id`: without them
+/// the compositor cannot pair the window with the installed `.desktop` entry
+/// and shows a generic placeholder icon.
 fn configure_window(window: &tauri::WebviewWindow) {
     if let Ok(icon) = tauri::image::Image::from_bytes(include_bytes!("../icons/128x128.png")) {
         let _ = window.set_icon(icon);
     }
 
     #[cfg(target_os = "linux")]
-    {
-        glib::set_prgname(Some("accountswitcher"));
-        glib::set_application_name("Steam Account Switcher");
-        gtk::Window::set_default_icon_name("accountswitcher");
-    }
+    gtk::Window::set_default_icon_name("accountswitcher");
 }
 
-/// GTK picks Wayland or X11 on its own. WebKitGTK's DMABUF renderer however
-/// fails on Wayland with the NVIDIA driver, so it is disabled in that case only.
+/// ! WebKitGTK's DMABUF renderer fails on Wayland with the NVIDIA driver, so it
+/// is disabled in that case only; GTK still picks Wayland or X11 on its own.
 #[cfg(target_os = "linux")]
 fn prepare_linux_display() {
+    // ! Before GTK starts: the Wayland app id is the program name, and KWin
+    // looks up "<app id>.desktop" for the window icon. The bundler names that
+    // entry after the product name, so the two must be identical. The icon
+    // name stays "accountswitcher": a "steam-" prefix would resolve to the
+    // Steam client's icon in some themes.
+    glib::set_prgname(Some("Steam Account Switcher"));
+    glib::set_application_name("Steam Account Switcher");
+
     if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_some() {
         return;
     }
@@ -250,7 +254,7 @@ pub fn show_main_window(app: &AppHandle) {
         let _ = window.unminimize();
         let _ = window.set_focus();
 
-        // Wayland refuses focus changes asked by an unfocused application, so a
+        // ! Wayland refuses focus changes from an unfocused application, so a
         // tray click would only raise the window: present() asks properly.
         #[cfg(target_os = "linux")]
         {
@@ -279,8 +283,7 @@ fn start_playtime_loop(app: AppHandle) {
 
             let state = app.state::<AppState>();
 
-            // The vault locks itself once its configured unlocked time elapsed.
-            // Kept before the idle skip so the deadline stays exact in the background.
+            // Before the idle skip so the vault lock deadline stays exact in the background.
             if state.lock_vault_if_due() {
                 let _ = app.emit("vault-locked", ());
             }

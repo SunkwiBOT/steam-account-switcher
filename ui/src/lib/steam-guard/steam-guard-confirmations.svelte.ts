@@ -22,8 +22,8 @@ export const createConfirmationsController = (deps: ConfirmationsDepsType) => {
   let loaded = $state(false);
   let attempted = $state(false);
   let error = $state<ErrorApiMessage | "">("");
-  // Bumped whenever the list is invalidated so responses from before it
-  // (a load or an action) cannot write their result afterwards.
+  //! Bumped whenever the list is invalidated so a load or action started
+  //! before it cannot write its result afterwards.
   let revision = 0;
   let refreshQueued = false;
 

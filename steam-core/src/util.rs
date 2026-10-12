@@ -11,9 +11,9 @@ pub fn now_unix() -> f64 {
     }
 }
 
-/// Writes a synced temporary file, then renames it over `path`: readers see the
-/// old or the new contents, never a partial file. The rename is not fsynced, so
-/// after a power loss the previous contents may still be the ones on disk.
+/// ! Writes a synced temporary file, then renames it over `path`: readers see
+/// ! the old or the new contents, never a partial file. The rename is not
+/// ! fsynced, so after a power loss the previous contents may still be on disk.
 pub fn write_atomic(path: &Path, contents: &str) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
@@ -113,7 +113,7 @@ pub fn absolute_time(timestamp: Option<i64>) -> String {
 
     match time::OffsetDateTime::from_unix_timestamp(timestamp) {
         Ok(instant) => {
-            let local = instant.to_offset(local_offset());
+            let local = instant.to_offset(local_offset_at(timestamp));
             let format = time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]");
             local
                 .format(&format)
@@ -123,10 +123,38 @@ pub fn absolute_time(timestamp: Option<i64>) -> String {
     }
 }
 
-/// Local UTC offset, resolved once because the lookup is not thread safe on
-/// every platform.
-pub fn local_offset() -> time::UtcOffset {
-    use std::sync::OnceLock;
-    static OFFSET: OnceLock<time::UtcOffset> = OnceLock::new();
-    *OFFSET.get_or_init(|| time::UtcOffset::current_local_offset().unwrap_or(time::UtcOffset::UTC))
+/// Local UTC offset in force at `timestamp`, so instants on both sides of a
+/// daylight-saving change land on their own day and hour. Falls back to UTC
+/// when the platform cannot tell.
+pub fn local_offset_at(timestamp: i64) -> time::UtcOffset {
+    time::OffsetDateTime::from_unix_timestamp(timestamp)
+        .ok()
+        .and_then(|instant| time::UtcOffset::local_offset_at(instant).ok())
+        .unwrap_or(time::UtcOffset::UTC)
+}
+
+/// Unix timestamp of a wall-clock reading made in the local zone, such as the
+/// zone-less timestamps Steam writes in its logs. The offset is resolved for
+/// the instant itself, not for now, by refining a first UTC guess.
+pub fn local_wall_clock_to_unix(wall_clock: time::PrimitiveDateTime) -> i64 {
+    let guess = wall_clock.assume_utc().unix_timestamp();
+    let offset = local_offset_at(guess);
+    let refined = wall_clock.assume_offset(offset).unix_timestamp();
+    wall_clock
+        .assume_offset(local_offset_at(refined))
+        .unix_timestamp()
+}
+
+/// Local calendar date of a Unix timestamp.
+pub fn local_date(timestamp: i64) -> time::Date {
+    time::OffsetDateTime::from_unix_timestamp(timestamp)
+        .unwrap_or(time::OffsetDateTime::UNIX_EPOCH)
+        .to_offset(local_offset_at(timestamp))
+        .date()
+}
+
+/// Unix timestamp of local midnight starting `day`, with the offset in force
+/// at that midnight rather than the current one.
+pub fn local_midnight(day: time::Date) -> i64 {
+    local_wall_clock_to_unix(day.midnight())
 }

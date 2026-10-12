@@ -39,13 +39,13 @@
 
 .settings-tab:hover {
   background: var(--button);
-  color: #ffffff;
+  color: var(--text-bright);
 }
 
 .settings-tab.active {
   background: var(--button);
   border-color: var(--accent);
-  color: #ffffff;
+  color: var(--text-bright);
   font-weight: 700;
 }
 

@@ -3,7 +3,7 @@
 
   import ActionButton from "../ui/ActionButton.svelte";
   import FormError from "../ui/FormError.svelte";
-  import { SteamGuardField } from "../../lib/steam-guard/steam-guard.constants";
+  import { ConfirmationKind, SteamGuardField } from "../../lib/steam-guard/steam-guard.constants";
   import type { SteamGuardControllerType } from "../../lib/steam-guard/steam-guard.svelte";
   import type { AccountType } from "../../lib/types";
   import { ChevronDown, ListChecks, LogIn, RefreshCw, Check, X } from "@lucide/svelte";
@@ -12,17 +12,18 @@
     entry: AccountType;
   };
 
-  const confirmationLabel = (kind: string): string =>
+  const confirmationLabel = (kind: ConfirmationKind): string =>
     (
       ({
-        trade: t.guard_confirmation_kind_trade,
-        market: t.guard_confirmation_kind_market,
-        phone: t.guard_confirmation_kind_phone,
-        recovery: t.guard_confirmation_kind_recovery,
-        api_key: t.guard_confirmation_kind_api_key,
-        feature: t.guard_confirmation_kind_opt_out,
-        family: t.guard_confirmation_kind_family,
-        test: t.guard_confirmation_kind_test,
+        [ConfirmationKind.TRADE]: t.guard_confirmation_kind_trade,
+        [ConfirmationKind.MARKET]: t.guard_confirmation_kind_market,
+        [ConfirmationKind.PHONE]: t.guard_confirmation_kind_phone,
+        [ConfirmationKind.RECOVERY]: t.guard_confirmation_kind_recovery,
+        [ConfirmationKind.API_KEY]: t.guard_confirmation_kind_api_key,
+        [ConfirmationKind.FEATURE]: t.guard_confirmation_kind_opt_out,
+        [ConfirmationKind.FAMILY]: t.guard_confirmation_kind_family,
+        [ConfirmationKind.TEST]: t.guard_confirmation_kind_test,
+        [ConfirmationKind.OTHER]: t.guard_confirmation_kind_unknown,
       })[kind] ?? t.guard_confirmation_kind_unknown
     )();
   let { controller, entry }: SteamGuardConfirmationsPropsType = $props();

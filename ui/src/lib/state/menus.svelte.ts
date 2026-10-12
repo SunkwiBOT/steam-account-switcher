@@ -1,4 +1,4 @@
-import { answerConfirm, answerFolderName } from "./dialogs.svelte";
+import { closeTopDialog } from "../actions/focus-trap";
 import { app } from "./state.svelte";
 
 export type DropdownOptionType = {
@@ -113,7 +113,7 @@ export const closeContextMenu = (): void => {
 };
 
 export const wireMenuDismissal = (): void => {
-  // Close on press so a control that stops its click event cannot leave the menu open.
+  //! Close on pointerdown, not click: a control that stops its click event would leave the menu open.
   document.addEventListener("pointerdown", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (contextMenu.open && !target?.closest(".context-menu")) {
@@ -131,6 +131,8 @@ export const wireMenuDismissal = (): void => {
     }
   });
 
+  // Escape closes one layer at a time: a floating menu first, then the
+  // top-most dialog. Native <dialog> elements handle their own Escape.
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") {
       return;
@@ -139,14 +141,12 @@ export const wireMenuDismissal = (): void => {
       event.preventDefault();
       return;
     }
-    closeDropdown();
-    closeContextMenu();
-    answerConfirm(null);
-    answerFolderName(null);
-    app.openAccountId = null;
-    app.settingsOpen = false;
-    app.updateDialog = false;
-    app.report = null;
+    if (dropdown.open || contextMenu.open) {
+      closeDropdown();
+      closeContextMenu();
+      return;
+    }
+    closeTopDialog();
   });
 
   window.addEventListener("blur", () => {

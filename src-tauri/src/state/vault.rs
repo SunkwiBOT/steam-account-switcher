@@ -1,4 +1,9 @@
-use super::*;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
+
+use steam_core::authenticator::Authenticator;
+
+use super::AppState;
 
 impl AppState {
     pub fn authenticator(&self) -> Arc<Mutex<Authenticator>> {
@@ -13,7 +18,6 @@ impl AppState {
         self.lock().unlocked_at = None;
     }
 
-    /// Locks the vault once its configured unlocked time has elapsed.
     /// Returns true only when the vault changed from unlocked to locked.
     pub fn lock_vault_if_due(&self) -> bool {
         let elapsed = {

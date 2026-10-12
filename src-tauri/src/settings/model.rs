@@ -1,4 +1,8 @@
-use super::*;
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+use super::{default_true, same_path, SearchScope, UpdateInterval, VaultLockInterval};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Folder {
@@ -252,7 +256,7 @@ pub(super) fn slug(name: &str) -> String {
     }
 }
 
-/// Only plain hex colours are stored, so a value can never inject CSS.
+/// ! Only plain hex colours are stored, so a value can never inject CSS.
 pub(super) fn is_safe_color(value: &str) -> bool {
     let bytes = value.as_bytes();
     matches!(bytes.len(), 4 | 7 | 9)

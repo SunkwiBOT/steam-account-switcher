@@ -1,4 +1,4 @@
-//! Bounded local diagnostics. Command arguments, results and raw errors must
+//! ! Bounded local diagnostics. Command arguments, results and raw errors must
 //! never be logged: they can contain passwords, tokens or authenticator secrets.
 
 use std::fs::{self, OpenOptions};
@@ -101,8 +101,8 @@ pub fn write(message: &str) {
     let Some(path) = slot.as_ref() else {
         return;
     };
-    // Serialize rotation and writes as well as target access. Otherwise two
-    // concurrent operations can overwrite the backup during rotation.
+    // ! Hold the TARGET lock across append: two concurrent rotations would
+    // overwrite the backup.
     let _ = append(path, message);
 }
 
@@ -145,8 +145,8 @@ fn private_permissions(path: &Path) {
     let _ = path;
 }
 
-/// Log a user action, including early returns via `?`, without serializing
-/// any input, output or error. Names must be static, never supplied by the UI.
+/// Logs a user action, early `?` returns included, without serializing input,
+/// output or error. Names must be static, never supplied by the UI.
 pub fn run<T>(name: &'static str, action: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
     let operation = Operation::start(name, false);
     operation.finish(action())
@@ -236,8 +236,8 @@ impl Drop for Operation {
     }
 }
 
-/// Return only fixed categories. Never append an arbitrary error string,
-/// even one that looks harmless: SDK errors may contain request URLs/tokens.
+/// ! Only fixed categories: an arbitrary error string, even a harmless-looking
+/// one, may carry request URLs or tokens.
 pub fn error_category(message: &str) -> &'static str {
     ErrorCode::from_code(message).map_or("unclassified", ErrorCode::as_str)
 }

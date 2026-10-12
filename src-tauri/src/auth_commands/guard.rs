@@ -1,4 +1,14 @@
-use super::*;
+use std::path::Path;
+
+use steam_core::authenticator::{
+    confirmation_action, confirmations, remove_authenticator, CodeInfo, ConfirmationItem,
+};
+use steam_core::error_code::ErrorCode;
+use tauri::State;
+
+use super::vault::vault_snapshot;
+use crate::commands::SnapshotDto;
+use crate::state::AppState;
 
 #[tauri::command(async)]
 pub fn steam_guard_code(state: State<'_, AppState>, steam_id: String) -> Result<CodeInfo, String> {
@@ -37,11 +47,16 @@ pub async fn steam_guard_import(
     crate::logging::run_async("steam_guard_import", async {
         let authenticator = state.authenticator();
         let result = tauri::async_runtime::spawn_blocking(move || {
+            let passkey = passkey.map(zeroize::Zeroizing::new);
             let mut guard = authenticator
                 .lock()
                 .unwrap_or_else(|error| error.into_inner());
             guard
-                .import(Path::new(&path), passkey.as_deref(), steam_id.as_deref())
+                .import(
+                    Path::new(&path),
+                    passkey.as_deref().map(|value| value.as_str()),
+                    steam_id.as_deref(),
+                )
                 .map_err(|error| error.to_string())?;
 
             Ok::<(), String>(())

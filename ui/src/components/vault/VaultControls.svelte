@@ -59,9 +59,8 @@
 
   const lockInSeconds = $derived(app.snapshot?.vault.lock_in_seconds ?? null);
   let remaining = $state<number | null>(null);
-  // The countdown is anchored on a deadline so a throttled background timer
-  // never desyncs it: each tick recomputes from the wall clock, and regaining
-  // focus snaps it back immediately.
+  //! Anchored on a deadline, not decremented: a throttled background timer
+  //! cannot desync it, and regaining focus snaps it back immediately.
   let lockAt = 0;
   $effect(() => {
     const seconds = lockInSeconds;
