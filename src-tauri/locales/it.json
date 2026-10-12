@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Esportare gli autenticatori Steam Guard",
+  "backup_file_filter": "Backup Steam Guard",
+  "tray_account": "Account %{index}",
+  "tray_no_accounts": "Nessun account",
+  "tray_open": "Aprire",
+  "tray_quit": "Uscire",
+  "tray_refresh": "Aggiornare"
+}

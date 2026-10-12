@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Exportovat autentifikátory Steam Guard",
+  "backup_file_filter": "Záloha Steam Guard",
+  "tray_account": "Účet %{index}",
+  "tray_no_accounts": "Žádné účty",
+  "tray_open": "Otevřít",
+  "tray_quit": "Ukončit",
+  "tray_refresh": "Obnovit"
+}

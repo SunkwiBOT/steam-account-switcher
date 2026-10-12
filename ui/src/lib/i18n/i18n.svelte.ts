@@ -1,13 +1,11 @@
 import { m } from "../paraglide/messages.js";
 import { setLocale } from "../paraglide/runtime.js";
-import { Language } from "./i18n.constants";
+import { Language, resolveSystemLocale } from "./i18n.constants";
 import type { ResolvedLanguageType } from "./i18n.constants";
 import type { MessagePartType } from "./messages";
 
 const systemLocale = (): ResolvedLanguageType =>
-  (navigator.languages[0] ?? navigator.language).toLowerCase().startsWith("fr")
-    ? Language.FR
-    : Language.EN;
+  resolveSystemLocale(navigator.languages.length ? navigator.languages : [navigator.language]);
 
 export const locale = $state<{ preference: Language; current: ResolvedLanguageType }>({
   preference: Language.AUTO,

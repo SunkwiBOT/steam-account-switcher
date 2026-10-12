@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Language } from "../../lib/i18n/i18n.constants";
+  import { Language, LANGUAGE_LABELS, RESOLVED_LANGUAGES } from "../../lib/i18n/i18n.constants";
   import { SearchScope } from "../../lib/state/state.constants";
   import { locale, t } from "../../lib/i18n/i18n.svelte";
   import { dropdown, openDropdown } from "../../lib/state/menus.svelte";
@@ -20,8 +20,7 @@
   let languageButton = $state<HTMLButtonElement | null>(null);
   const languageOptions = $derived([
     { value: Language.AUTO, label: t.language_system() },
-    { value: Language.EN, label: t.language_english() },
-    { value: Language.FR, label: t.language_french() },
+    ...RESOLVED_LANGUAGES.map((value) => ({ value, label: LANGUAGE_LABELS[value] })),
   ]);
   const languageLabel = $derived(
     languageOptions.find((option) => option.value === locale.preference)?.label ??

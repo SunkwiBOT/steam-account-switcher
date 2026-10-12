@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Εξαγωγή επαληθευτών Steam Guard",
+  "backup_file_filter": "Αντίγραφο ασφαλείας Steam Guard",
+  "tray_account": "Λογαριασμός %{index}",
+  "tray_no_accounts": "Χωρίς λογαριασμούς",
+  "tray_open": "Άνοιγμα",
+  "tray_quit": "Έξοδος",
+  "tray_refresh": "Ανανέωση"
+}

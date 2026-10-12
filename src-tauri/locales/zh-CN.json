@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "导出 Steam Guard 令牌",
+  "backup_file_filter": "Steam Guard 备份",
+  "tray_account": "账户 %{index}",
+  "tray_no_accounts": "没有账户",
+  "tray_open": "打开",
+  "tray_quit": "退出",
+  "tray_refresh": "刷新"
+}

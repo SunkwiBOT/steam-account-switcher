@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Steam Guard-authenticators exporteren",
+  "backup_file_filter": "Steam Guard-back-up",
+  "tray_account": "Account %{index}",
+  "tray_no_accounts": "Geen accounts",
+  "tray_open": "Openen",
+  "tray_quit": "Afsluiten",
+  "tray_refresh": "Vernieuwen"
+}

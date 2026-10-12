@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Xuất trình xác thực Steam Guard",
+  "backup_file_filter": "Bản sao lưu Steam Guard",
+  "tray_account": "Tài khoản %{index}",
+  "tray_no_accounts": "Không có tài khoản",
+  "tray_open": "Mở",
+  "tray_quit": "Thoát",
+  "tray_refresh": "Làm mới"
+}

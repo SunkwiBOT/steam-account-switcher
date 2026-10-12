@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Eksporter Steam Guard-autentisatorer",
+  "backup_file_filter": "Steam Guard-sikkerhetskopi",
+  "tray_account": "Konto %{index}",
+  "tray_no_accounts": "Ingen kontoer",
+  "tray_open": "Åpne",
+  "tray_quit": "Avslutt",
+  "tray_refresh": "Oppdater"
+}

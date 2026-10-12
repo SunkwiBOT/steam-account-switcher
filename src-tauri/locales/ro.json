@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Exportați autentificatoare Steam Guard",
+  "backup_file_filter": "Copie de rezervă Steam Guard",
+  "tray_account": "Contul %{index}",
+  "tray_no_accounts": "Niciun cont",
+  "tray_open": "Deschideți",
+  "tray_quit": "Ieșiți",
+  "tray_refresh": "Reîmprospătați"
+}

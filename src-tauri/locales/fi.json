@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Vie Steam Guard -todentajat",
+  "backup_file_filter": "Steam Guard -varmuuskopio",
+  "tray_account": "Tili %{index}",
+  "tray_no_accounts": "Ei tilejä",
+  "tray_open": "Avaa",
+  "tray_quit": "Lopeta",
+  "tray_refresh": "Päivitä"
+}

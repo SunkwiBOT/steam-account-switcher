@@ -421,8 +421,6 @@
   "installation_selector_label": "Afficher le menu des installations Steam",
   "installation_settings_description": "Masquez les installations inutilisées ou ajoutez un dossier Steam que l’application n’a pas trouvé. Il doit contenir {file}.",
   "language_description": "Choisissez la langue de l’application.",
-  "language_english": "English",
-  "language_french": "Français",
   "language_label": "Langue",
   "language_system": "Langue du système",
   "logs_content_label": "Contenu du journal",

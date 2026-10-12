@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Steam Guard 認証器をエクスポート",
+  "backup_file_filter": "Steam Guard バックアップ",
+  "tray_account": "アカウント %{index}",
+  "tray_no_accounts": "アカウントなし",
+  "tray_open": "開く",
+  "tray_quit": "終了",
+  "tray_refresh": "更新"
+}

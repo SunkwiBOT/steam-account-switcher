@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Eksportuj uwierzytelniacze Steam Guard",
+  "backup_file_filter": "Kopia zapasowa Steam Guard",
+  "tray_account": "Konto %{index}",
+  "tray_no_accounts": "Brak kont",
+  "tray_open": "Otwórz",
+  "tray_quit": "Zakończ",
+  "tray_refresh": "Odśwież"
+}

@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Експортувати автентифікатори Steam Guard",
+  "backup_file_filter": "Резервна копія Steam Guard",
+  "tray_account": "Обліковий запис %{index}",
+  "tray_no_accounts": "Немає облікових записів",
+  "tray_open": "Відкрити",
+  "tray_quit": "Вийти",
+  "tray_refresh": "Оновити"
+}

@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Ekspor autentikator Steam Guard",
+  "backup_file_filter": "Cadangan Steam Guard",
+  "tray_account": "Akun %{index}",
+  "tray_no_accounts": "Tidak ada akun",
+  "tray_open": "Buka",
+  "tray_quit": "Keluar",
+  "tray_refresh": "Segarkan"
+}

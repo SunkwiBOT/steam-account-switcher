@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "ส่งออกตัวยืนยันตัวตน Steam Guard",
+  "backup_file_filter": "ข้อมูลสำรอง Steam Guard",
+  "tray_account": "บัญชี %{index}",
+  "tray_no_accounts": "ไม่มีบัญชี",
+  "tray_open": "เปิด",
+  "tray_quit": "ออก",
+  "tray_refresh": "รีเฟรช"
+}

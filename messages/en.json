@@ -421,8 +421,6 @@
   "installation_selector_label": "Show the Steam installation menu",
   "installation_settings_description": "Hide unused installations or add a Steam folder the app has not found. It must contain {file}.",
   "language_description": "Choose the app language.",
-  "language_english": "English",
-  "language_french": "Français",
   "language_label": "Language",
   "language_system": "System language",
   "logs_content_label": "Log contents",

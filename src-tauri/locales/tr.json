@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Steam Guard kimlik doğrulayıcılarını dışa aktar",
+  "backup_file_filter": "Steam Guard yedeği",
+  "tray_account": "Hesap %{index}",
+  "tray_no_accounts": "Hesap yok",
+  "tray_open": "Aç",
+  "tray_quit": "Çık",
+  "tray_refresh": "Yenile"
+}

@@ -16,8 +16,8 @@ and keeps a local playtime history per account, game, day and session.
   import one you already use from its `.maFile` backup.
 - [**Playtime history**](#playtime) kept on this computer, per account, game, day
   and session.
-- [**English and French**](#settings): choose the system language or a saved one
-  in Settings → Preferences.
+- [**29 languages**](#settings), the ones Steam speaks: the system language or
+  a saved one in Settings → Preferences.
 - [**Linux and Windows**](#download): AppImage, RPM, portable `.exe` or installer,
   tray icon, start with the system, and updates from the app itself.
 

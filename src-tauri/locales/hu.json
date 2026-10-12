@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Steam Guard hitelesítők exportálása",
+  "backup_file_filter": "Steam Guard biztonsági mentés",
+  "tray_account": "%{index}. fiók",
+  "tray_no_accounts": "Nincsenek fiókok",
+  "tray_open": "Megnyitás",
+  "tray_quit": "Kilépés",
+  "tray_refresh": "Frissítés"
+}

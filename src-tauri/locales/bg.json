@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Експортиране на удостоверители Steam Guard",
+  "backup_file_filter": "Резервно копие на Steam Guard",
+  "tray_account": "Акаунт %{index}",
+  "tray_no_accounts": "Няма акаунти",
+  "tray_open": "Отваряне",
+  "tray_quit": "Изход",
+  "tray_refresh": "Обновяване"
+}

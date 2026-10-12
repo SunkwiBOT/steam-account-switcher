@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "匯出 Steam Guard 驗證器",
+  "backup_file_filter": "Steam Guard 備份",
+  "tray_account": "帳戶 %{index}",
+  "tray_no_accounts": "沒有帳戶",
+  "tray_open": "開啟",
+  "tray_quit": "結束",
+  "tray_refresh": "重新整理"
+}

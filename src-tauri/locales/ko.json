@@ -1,0 +1,10 @@
+{
+  "_version": 1,
+  "backup_export_title": "Steam Guard 인증기 내보내기",
+  "backup_file_filter": "Steam Guard 백업",
+  "tray_account": "계정 %{index}",
+  "tray_no_accounts": "계정 없음",
+  "tray_open": "열기",
+  "tray_quit": "종료",
+  "tray_refresh": "새로 고침"
+}
