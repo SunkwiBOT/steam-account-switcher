@@ -258,6 +258,7 @@ async fn forget_saved_account_for(
             settings.guard_account_profiles.remove(steam_id);
             settings.account_folders.remove(steam_id);
             settings.account_colors.remove(steam_id);
+            settings.account_notes.remove(steam_id);
             if let Err(error) = inner.settings.save() {
                 *inner.settings.data_mut() = previous;
                 crate::logging::write(&format!(

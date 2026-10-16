@@ -251,6 +251,18 @@ pub fn set_account_color(
 }
 
 #[tauri::command(async)]
+pub fn set_account_note(
+    state: State<'_, AppState>,
+    steam_id: String,
+    note: String,
+) -> Result<SnapshotDto, String> {
+    crate::logging::run("set_account_note", || {
+        state.set_account_note(&steam_id, &note)?;
+        Ok(build_snapshot(&state))
+    })
+}
+
+#[tauri::command(async)]
 pub fn set_folder_color(
     state: State<'_, AppState>,
     id: String,

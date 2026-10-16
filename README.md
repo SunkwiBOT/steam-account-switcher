@@ -57,8 +57,8 @@ folder it comes from:
 ## Account details
 
 The details of an account open from its eye button. They show the sign-in name
-with reveal and copy, the last login, local playtime, rank, folder, colour, and the
-actions for switching, viewing playtime and removing the account.
+with reveal and copy, the last login, local playtime, rank, folder, colour, notes,
+and the actions for switching, viewing playtime and removing the account.
 
 ![Account details](screenshots/account.png)
 
@@ -66,6 +66,21 @@ actions for switching, viewing playtime and removing the account.
 Steam3, the profile and invite links, and the FiveM/HEX form.
 
 ![Steam IDs](screenshots/account-ids.png)
+
+## Notes
+
+Each account has its own notes at the bottom of its details: roles, goals,
+reminders, anything worth keeping next to the account. The toolbar adds bold,
+italic, underline, strikethrough, bullet lists and ten text colours, and clears
+the formatting of a selection. Pasted text keeps the formatting the notes support.
+
+Notes save on their own a moment after you stop typing, and when you leave the
+editor or close the details. A note that cannot be saved stays in the editor
+and comes back the next time the account is opened during the session. Notes
+are kept with the other preferences on this PC, and removing a saved account
+removes its notes too.
+
+![Account notes](screenshots/account-notes.png)
 
 ## Playtime
 

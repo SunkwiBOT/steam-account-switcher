@@ -61,6 +61,7 @@ pub struct AccountDto {
     pub is_local: bool,
     pub session_count: usize,
     pub color: Option<String>,
+    pub note: Option<String>,
     pub folder_id: Option<String>,
     pub has_authenticator: bool,
     pub has_authenticator_session: bool,

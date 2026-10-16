@@ -62,6 +62,7 @@ export type CommandsType = {
   delete_folder: { args: { id: string }; result: SnapshotType };
   assign_folder: { args: { steamId: string; folderId: string | null }; result: SnapshotType };
   set_account_color: { args: { steamId: string; color: string | null }; result: SnapshotType };
+  set_account_note: { args: { steamId: string; note: string }; result: SnapshotType };
   set_folder_color: { args: { id: string; color: string | null }; result: SnapshotType };
   set_folder_icon: { args: { id: string; icon: string | null }; result: SnapshotType };
   set_rank: { args: { steamId: string; template: string; rank: string }; result: SnapshotType };

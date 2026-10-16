@@ -89,6 +89,7 @@ export type AccountType = {
   is_local: boolean;
   session_count: number;
   color: string | null;
+  note: string | null;
   folder_id: string | null;
   has_authenticator: boolean;
   has_authenticator_session: boolean;

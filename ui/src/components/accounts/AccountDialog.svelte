@@ -24,6 +24,7 @@
   import ActionButton from "../ui/ActionButton.svelte";
   import AccountIdentity from "./AccountIdentity.svelte";
   import AccountCaption from "./AccountCaption.svelte";
+  import AccountNotes from "./AccountNotes.svelte";
   import SteamGuardIcon from "../steam-guard/SteamGuardIcon.svelte";
   import SteamIdentifiers from "./SteamIdentifiers.svelte";
   import {
@@ -32,6 +33,7 @@
     Check,
     ChevronDown,
     Folder,
+    NotebookPen,
     Palette,
     Timer,
     Trash2,
@@ -326,6 +328,11 @@
             />
           </section>
         </div>
+
+        <section class="account-block">
+          <h3 class="block-title"><NotebookPen size={15} /> {t.account_notes()}</h3>
+          <AccountNotes steamId={entry.steam_id} note={entry.note} />
+        </section>
       </div>
 
       <footer class="dialog-foot">

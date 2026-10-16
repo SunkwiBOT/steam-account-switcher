@@ -69,6 +69,8 @@ const messages: Record<ErrorApiMessage, () => string> = {
   [ErrorApiMessage.PROTECTED_FOLDER]: () => t.error_protected_folder(),
   [ErrorApiMessage.UNKNOWN_FOLDER]: () => t.error_unknown_folder(),
   [ErrorApiMessage.SAVED_ACCOUNT_FOLDER]: () => t.error_saved_account_folder(),
+  [ErrorApiMessage.NOTE_TOO_LONG]: () => t.error_note_too_long(),
+  [ErrorApiMessage.INVALID_NOTE]: () => t.error_invalid_note(),
   [ErrorApiMessage.CONFIRMATION_REQUIRED]: () => t.error_confirmation_required(),
   [ErrorApiMessage.ACCOUNT_LOCAL]: () => t.error_account_local(),
   [ErrorApiMessage.ACCOUNT_NOT_LOCAL]: () => t.error_account_not_local(),

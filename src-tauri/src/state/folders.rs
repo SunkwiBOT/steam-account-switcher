@@ -78,6 +78,40 @@ impl AppState {
         save_or_restore(&mut inner.settings, previous)
     }
 
+    pub fn set_account_note(&self, steam_id: &str, note: &str) -> Result<(), String> {
+        // Same accounts as `display_accounts`, without rebuilding the list.
+        let (configured, indexed) = {
+            let guard = self
+                .authenticator
+                .lock()
+                .unwrap_or_else(|error| error.into_inner());
+            (guard.configured_ids(), guard.status().indexed)
+        };
+        let mut inner = self.lock();
+        let known = inner
+            .accounts
+            .iter()
+            .any(|account| account.steam_id == steam_id)
+            || configured.iter().any(|id| id == steam_id)
+            || (!indexed
+                && inner
+                    .settings
+                    .data()
+                    .guard_account_profiles
+                    .contains_key(steam_id));
+        // Removing a note stays possible for an account that is no longer listed.
+        if !known && !note.trim().is_empty() {
+            return Err(ErrorCode::InvalidSteamId.as_str().to_string());
+        }
+        let previous = inner.settings.data().clone();
+        inner
+            .settings
+            .data_mut()
+            .set_account_note(steam_id, note)
+            .map_err(|code| code.as_str().to_string())?;
+        save_or_restore(&mut inner.settings, previous)
+    }
+
     pub fn set_folder_color(&self, id: &str, color: Option<&str>) -> Result<(), String> {
         if id == crate::retained_accounts::SAVED_GUARD_FOLDER_ID {
             return Err(ErrorCode::ProtectedFolder.as_str().to_string());

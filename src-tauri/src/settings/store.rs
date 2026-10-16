@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, Transaction};
 use serde::de::DeserializeOwned;
@@ -21,7 +22,18 @@ impl SettingsStore {
         let data = database
             .read("Read settings", read_settings)
             .unwrap_or_default();
-        Self { database, data }
+        let mut store = Self { database, data };
+        if !store.data.unreadable_account_notes.is_empty() {
+            let notes = std::mem::take(&mut store.data.unreadable_account_notes);
+            let exported = notes.len();
+            store.data.unreadable_account_notes =
+                export_unreadable_notes(store.database.path(), notes);
+            // Only the copies now safe in a file leave the database.
+            if store.data.unreadable_account_notes.len() < exported {
+                let _ = store.save();
+            }
+        }
+        store
     }
 
     pub fn data(&self) -> &Settings {
@@ -41,13 +53,93 @@ impl SettingsStore {
     }
 }
 
-pub(super) fn read_value<T: DeserializeOwned>(connection: &Connection, key: &str) -> Option<T> {
-    let text: String = connection
+fn read_text(connection: &Connection, key: &str) -> Option<String> {
+    connection
         .query_row("SELECT value FROM setting WHERE key = ?1", [key], |row| {
             row.get(0)
         })
-        .ok()?;
-    serde_json::from_str(&text).ok()
+        .ok()
+}
+
+pub(super) fn read_value<T: DeserializeOwned>(connection: &Connection, key: &str) -> Option<T> {
+    serde_json::from_str(&read_text(connection, key)?).ok()
+}
+
+const NOTES_KEY: &str = "account_notes";
+const UNREADABLE_NOTES_KEY: &str = "account_notes_unreadable";
+
+/// ! Notes cannot be rebuilt from Steam, so a value that does not parse is kept
+/// ! verbatim instead of being replaced by an empty map. Every copy kept by an
+/// ! earlier run is read back too, so a second failure never drops the first.
+fn read_notes(connection: &Connection) -> (BTreeMap<String, String>, Vec<String>) {
+    let mut kept: Vec<String> = connection
+        .prepare("SELECT value FROM setting WHERE key LIKE ?1 ORDER BY key")
+        .and_then(|mut statement| {
+            statement
+                .query_map([format!("{UNREADABLE_NOTES_KEY}%")], |row| row.get(0))?
+                .collect()
+        })
+        .unwrap_or_default();
+    let Some(text) = read_text(connection, NOTES_KEY) else {
+        return (BTreeMap::new(), kept);
+    };
+    match serde_json::from_str(&text) {
+        Ok(notes) => (notes, kept),
+        Err(error) => {
+            crate::logging::write(&format!(
+                "action=read_account_notes status=failed result=kept_aside error={error}"
+            ));
+            kept.push(text);
+            (BTreeMap::new(), kept)
+        }
+    }
+}
+
+/// Writes unreadable notes next to the database, readable by the owner only,
+/// so they can be recovered by hand. Returns the copies that could not be written.
+fn export_unreadable_notes(database_path: &Path, notes: Vec<String>) -> Vec<String> {
+    let Some(directory) = database_path.parent().filter(|path| path.is_dir()) else {
+        return notes;
+    };
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0);
+    notes
+        .into_iter()
+        .enumerate()
+        .filter_map(|(index, text)| {
+            let path = directory.join(format!("account-notes-recovered-{stamp}-{index}.json"));
+            match write_private(&path, &text) {
+                Ok(()) => {
+                    crate::logging::write(&format!(
+                        "action=export_account_notes status=ok path={}",
+                        path.display()
+                    ));
+                    None
+                }
+                Err(error) => {
+                    crate::logging::write(&format!(
+                        "action=export_account_notes status=failed error={error}"
+                    ));
+                    Some(text)
+                }
+            }
+        })
+        .collect()
+}
+
+fn write_private(path: &Path, text: &str) -> std::io::Result<()> {
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path)?;
+    file.write_all(text.as_bytes())?;
+    file.sync_all()
 }
 
 pub(super) fn read_settings(connection: &Connection) -> rusqlite::Result<Settings> {
@@ -96,6 +188,8 @@ pub(super) fn read_settings(connection: &Connection) -> rusqlite::Result<Setting
         })?
         .collect::<rusqlite::Result<BTreeMap<_, _>>>()?;
 
+    let (account_notes, unreadable_account_notes) = read_notes(connection);
+
     Ok(Settings {
         language: read_value(connection, "language").unwrap_or(defaults.language),
         show_account_names: read_value(connection, "show_account_names")
@@ -122,6 +216,9 @@ pub(super) fn read_settings(connection: &Connection) -> rusqlite::Result<Setting
         folders,
         account_folders: pairs("SELECT steam_id, folder_id FROM account_folder")?,
         account_colors: pairs("SELECT steam_id, color FROM account_color")?,
+        // Notes live in the key/value table so the schema version stays the same.
+        account_notes,
+        unreadable_account_notes,
         guard_account_profiles,
     })
 }
@@ -165,6 +262,13 @@ pub(super) fn write_settings(
         "last_update_check_at",
         &settings.last_update_check_at,
     )?;
+    put_setting(transaction, NOTES_KEY, &settings.account_notes)?;
+    for (index, text) in settings.unreadable_account_notes.iter().enumerate() {
+        transaction.execute(
+            "INSERT INTO setting (key, value) VALUES (?1, ?2)",
+            (format!("{UNREADABLE_NOTES_KEY}.{index:04}"), text),
+        )?;
+    }
 
     for (position, folder) in settings.folders.iter().enumerate() {
         transaction.execute(
@@ -236,4 +340,83 @@ pub(super) fn put_setting<T: Serialize>(
         (key, text),
     )?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn corrupt_notes(database: &Database, text: &str) {
+        database
+            .transaction("seed", |transaction| {
+                transaction.execute(
+                    "INSERT OR REPLACE INTO setting (key, value) VALUES (?1, ?2)",
+                    (NOTES_KEY, text),
+                )?;
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn unreadable_notes_survive_saves_and_later_failures() {
+        let database = Database::in_memory().unwrap();
+        corrupt_notes(&database, "{\"first\":");
+        let mut store = SettingsStore::load(database.clone());
+        assert!(store.data().account_notes.is_empty());
+        store
+            .data_mut()
+            .set_account_note("1", "<b>new</b>")
+            .unwrap();
+        store.save().unwrap();
+
+        corrupt_notes(&database, "{\"second\":");
+        let store = SettingsStore::load(database.clone());
+        store.save().unwrap();
+
+        let reloaded = SettingsStore::load(database);
+        assert_eq!(
+            reloaded.data().unreadable_account_notes,
+            vec!["{\"first\":".to_string(), "{\"second\":".to_string()]
+        );
+    }
+
+    #[test]
+    fn unreadable_notes_are_exported_next_to_the_database() {
+        let directory = std::env::temp_dir().join(format!(
+            "notes-export-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("settings.db");
+        let database = Database::open(&path).unwrap().database;
+        corrupt_notes(&database, "{\"lost\":");
+
+        let store = SettingsStore::load(database.clone());
+        assert!(store.data().unreadable_account_notes.is_empty());
+        let exported: Vec<_> = std::fs::read_dir(&directory)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("account-notes-recovered-")
+            })
+            .collect();
+        assert_eq!(exported.len(), 1);
+        assert_eq!(
+            std::fs::read_to_string(exported[0].path()).unwrap(),
+            "{\"lost\":"
+        );
+        assert!(SettingsStore::load(database)
+            .data()
+            .unreadable_account_notes
+            .is_empty());
+        let _ = std::fs::remove_dir_all(&directory);
+    }
 }

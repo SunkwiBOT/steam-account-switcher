@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
+use steam_core::error_code::ErrorCode;
 
 use super::{default_true, same_path, SearchScope, UpdateInterval, VaultLockInterval};
 
@@ -13,6 +14,9 @@ pub struct Folder {
     #[serde(default)]
     pub icon: Option<String>,
 }
+
+/// Upper bound for one account note, markup included.
+pub const MAX_NOTE_BYTES: usize = 64 * 1024;
 
 /// Folder icons offered by the interface. Unknown values are never stored.
 pub const FOLDER_ICONS: [&str; 20] = [
@@ -71,6 +75,12 @@ pub struct Settings {
     #[serde(default)]
     pub account_colors: BTreeMap<String, String>,
     #[serde(default)]
+    pub account_notes: BTreeMap<String, String>,
+    /// Stored notes that could not be parsed and could not be exported to a
+    /// recovery file yet, written back as they were found.
+    #[serde(skip)]
+    pub unreadable_account_notes: Vec<String>,
+    #[serde(default)]
     pub guard_account_profiles: BTreeMap<String, crate::retained_accounts::SavedAccountProfile>,
 }
 
@@ -92,6 +102,8 @@ impl Default for Settings {
             folders: Vec::new(),
             account_folders: BTreeMap::new(),
             account_colors: BTreeMap::new(),
+            account_notes: BTreeMap::new(),
+            unreadable_account_notes: Vec::new(),
             guard_account_profiles: BTreeMap::new(),
         }
     }
@@ -223,6 +235,28 @@ impl Settings {
         }
     }
 
+    /// An empty note removes the entry. Only markup in the form the
+    /// interface's sanitiser writes is accepted.
+    pub fn set_account_note(&mut self, steam_id: &str, note: &str) -> Result<(), ErrorCode> {
+        if note.len() > MAX_NOTE_BYTES {
+            return Err(ErrorCode::NoteTooLong);
+        }
+        if !is_note_markup(note) {
+            return Err(ErrorCode::InvalidNote);
+        }
+        if note.trim().is_empty() {
+            self.account_notes.remove(steam_id);
+        } else {
+            self.account_notes
+                .insert(steam_id.to_string(), note.to_string());
+        }
+        Ok(())
+    }
+
+    pub fn account_note(&self, steam_id: &str) -> Option<&str> {
+        self.account_notes.get(steam_id).map(String::as_str)
+    }
+
     pub fn account_folder(&self, steam_id: &str) -> Option<&str> {
         self.account_folders.get(steam_id).map(String::as_str)
     }
@@ -230,6 +264,41 @@ impl Settings {
     pub fn account_color(&self, steam_id: &str) -> Option<&str> {
         self.account_colors.get(steam_id).map(String::as_str)
     }
+}
+
+/// ! Notes reach `innerHTML`, so anything but the sanitiser's own output is
+/// ! refused: its text is escaped, and its only tags are the ones below.
+fn is_note_markup(note: &str) -> bool {
+    let mut rest = note;
+    while let Some(start) = rest.find(['<', '>']) {
+        let tag = &rest[start..];
+        let Some(end) = tag.find('>').filter(|_| tag.starts_with('<')) else {
+            return false;
+        };
+        if !is_note_tag(&tag[1..end]) {
+            return false;
+        }
+        rest = &tag[end + 1..];
+    }
+    true
+}
+
+fn is_note_tag(tag: &str) -> bool {
+    const BLOCKS: [&str; 9] = ["b", "i", "u", "s", "div", "ul", "ol", "li", "span"];
+    if tag == "br" || BLOCKS.contains(&tag.strip_prefix('/').unwrap_or("")) {
+        return true;
+    }
+    if tag != "span" && BLOCKS.contains(&tag) {
+        return true;
+    }
+    tag.strip_prefix("span style=\"color:#")
+        .and_then(|rest| rest.strip_suffix('"'))
+        .is_some_and(|hex| {
+            hex.len() == 6
+                && hex
+                    .bytes()
+                    .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+        })
 }
 
 pub(super) fn slug(name: &str) -> String {
@@ -262,4 +331,28 @@ pub(super) fn is_safe_color(value: &str) -> bool {
     matches!(bytes.len(), 4 | 7 | 9)
         && bytes[0] == b'#'
         && bytes[1..].iter().all(u8::is_ascii_hexdigit)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_note_markup;
+
+    #[test]
+    fn accepts_sanitised_markup() {
+        assert!(is_note_markup(""));
+        assert!(is_note_markup(
+            "<div><b>a &lt;b&gt; &amp;</b></div><ul><li><span style=\"color:#f43f5e\">x</span></li></ul><br>"
+        ));
+    }
+
+    #[test]
+    fn refuses_other_markup() {
+        assert!(!is_note_markup("<img src=x onerror=alert(1)>"));
+        assert!(!is_note_markup("<script>alert(1)</script>"));
+        assert!(!is_note_markup("<span style=\"color:red\">x</span>"));
+        assert!(!is_note_markup("<span>x</span>"));
+        assert!(!is_note_markup("<b onclick=x>"));
+        assert!(!is_note_markup("a > b"));
+        assert!(!is_note_markup("<b"));
+    }
 }

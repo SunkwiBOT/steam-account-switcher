@@ -69,6 +69,7 @@ fn main() {
             commands::preferences::delete_folder,
             commands::preferences::assign_folder,
             commands::preferences::set_account_color,
+            commands::preferences::set_account_note,
             commands::preferences::set_folder_color,
             commands::preferences::set_folder_icon,
             commands::preferences::set_window_active,

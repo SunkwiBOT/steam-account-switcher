@@ -155,6 +155,9 @@ pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
                 color: settings_data
                     .account_color(&account.steam_id)
                     .map(str::to_string),
+                note: settings_data
+                    .account_note(&account.steam_id)
+                    .map(str::to_string),
                 folder_id: if is_local {
                     settings_data
                         .account_folder(&account.steam_id)
