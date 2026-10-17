@@ -67,6 +67,8 @@
   let tooLong = $state(false);
   /// The toolbar only reflects the caret while the user is in the editor.
   let focused = $state(false);
+  /// Height chosen with the grip, `null` while the editor follows its text.
+  let height = $state<number | null>(null);
   let timer: ReturnType<typeof setTimeout> | null = null;
   //! Saves run one after another: two in flight could reach the database in
   //! the wrong order and leave the older text stored.
@@ -186,6 +188,30 @@
     return hex && NOTE_COLORS.includes(hex) ? hex : null;
   });
 
+  const MIN_HEIGHT = 74;
+
+  //! A grip of our own rather than CSS `resize`, which WebKitGTK does not
+  //! offer on this editor: pointer capture behaves the same in every webview.
+  const startResize = (event: PointerEvent): void => {
+    if (!host || event.button !== 0) return;
+    event.preventDefault();
+    const grip = event.currentTarget as HTMLElement;
+    const startY = event.clientY;
+    const startHeight = host.getBoundingClientRect().height;
+    grip.setPointerCapture(event.pointerId);
+    const move = (next: PointerEvent): void => {
+      height = Math.max(MIN_HEIGHT, Math.round(startHeight + next.clientY - startY));
+    };
+    const stop = (): void => {
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", stop);
+      grip.removeEventListener("pointercancel", stop);
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", stop);
+    grip.addEventListener("pointercancel", stop);
+  };
+
   const format = (apply: (chain: ChainedCommands) => ChainedCommands): void => {
     if (editor) apply(editor.chain().focus()).run();
   };
@@ -222,12 +248,21 @@
         },
       },
       onUpdate: schedule,
+      //! ProseMirror reports focus changes from inside DOM updates, which may
+      //! be Svelte's own (closing the dialog blurs the editor): state is only
+      //! written once that update is over.
       onFocus: () => {
-        focused = true;
+        queueMicrotask(() => {
+          focused = true;
+        });
       },
-      onBlur: blur,
+      onBlur: () => {
+        queueMicrotask(blur);
+      },
       onTransaction: () => {
-        revision += 1;
+        queueMicrotask(() => {
+          revision += 1;
+        });
       },
     });
   });
@@ -281,7 +316,21 @@
       <RemoveFormatting size={15} />
     </button>
   </div>
-  <div class="notes-editor input" class:invalid={tooLong} bind:this={host}></div>
+  <div class="notes-frame">
+    <div
+      class="notes-editor input"
+      class:invalid={tooLong}
+      style:height={height === null ? null : `${height}px`}
+      bind:this={host}
+    ></div>
+    <!-- Double-clicking the grip lets the editor follow its text again. -->
+    <span
+      class="notes-grip"
+      aria-hidden="true"
+      onpointerdown={startResize}
+      ondblclick={() => (height = null)}
+    ></span>
+  </div>
   {#if tooLong}
     <p class="notes-error" role="alert">{t.error_note_too_long()}</p>
   {/if}

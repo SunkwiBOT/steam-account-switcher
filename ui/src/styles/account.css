@@ -597,14 +597,52 @@
   background: var(--border);
 }
 
+.notes-frame {
+  position: relative;
+}
+
 .notes-editor {
-  /* Grows with the text; the dialog scrolls instead of the editor. */
-  min-height: 72px;
-  padding: 8px 10px;
+  /* Grows with the text until the grip sets a height; past it, it scrolls.
+     The editable area fills the whole frame, padding included, so any click
+     there types. */
+  display: flex;
+  flex-direction: column;
+  min-height: 74px;
+  overflow: auto;
+  padding: 0;
   line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   cursor: text;
+}
+
+.notes-grip {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  cursor: ns-resize;
+  touch-action: none;
+  background: linear-gradient(
+    135deg,
+    transparent 45%,
+    var(--border-strong) 45% 55%,
+    transparent 55% 70%,
+    var(--border-strong) 70% 80%,
+    transparent 80%
+  );
+}
+
+.notes-grip:hover {
+  background: linear-gradient(
+    135deg,
+    transparent 45%,
+    var(--accent) 45% 55%,
+    transparent 55% 70%,
+    var(--accent) 70% 80%,
+    transparent 80%
+  );
 }
 
 .notes-editor:focus-within {
@@ -623,7 +661,9 @@
 }
 
 .notes-prose {
-  min-height: 100%;
+  flex: 1;
+  min-height: 72px;
+  padding: 8px 10px;
   outline: none;
 }
 
