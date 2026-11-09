@@ -114,7 +114,7 @@
         {#if badge.icon}
           <img class="card-rank-icon" src={badge.icon} alt="" />
         {/if}
-        <span style={badge.colour ? `color:${badge.colour}` : ""}>{badge.text}</span>
+        <span style={badge.colour ? `color:${badge.colour}` : ""}>{badge.short}</span>
       </span>
     {/if}
   </div>

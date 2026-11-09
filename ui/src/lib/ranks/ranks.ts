@@ -92,6 +92,36 @@ export const rankLabel = (value: string): string => {
     : value;
 };
 
+// ! An account card has room for about ten characters beside the playtime and the icon: the
+// long names get the short forms players use; the full name stays in the tooltip.
+const SHORT_RANKS: Record<string, string> = {
+  Grandmaster: "GM",
+  "Silver I": "S1",
+  "Silver II": "S2",
+  "Silver III": "S3",
+  "Silver IV": "S4",
+  "Silver Elite": "SE",
+  "Silver Elite Master": "SEM",
+  "Gold Nova I": "GN1",
+  "Gold Nova II": "GN2",
+  "Gold Nova III": "GN3",
+  "Gold Nova Master": "GNM",
+  "Master Guardian I": "MG1",
+  "Master Guardian II": "MG2",
+  "Master Guardian Elite": "MGE",
+  "Distinguished Master Guardian": "DMG",
+  "Legendary Eagle": "LE",
+  "Legendary Eagle Master": "LEM",
+  "Supreme Master First Class": "SMFC",
+  "Global Elite": "GE",
+};
+
+const rankShortLabel = (value: string): string => {
+  if (SHORT_RANKS[value]) return SHORT_RANKS[value];
+  const match = /^(.+) ([1-5])$/.exec(value);
+  return match && SHORT_RANKS[match[1]] ? `${SHORT_RANKS[match[1]]}${match[2]}` : rankLabel(value);
+};
+
 const colourLabel = (name: string): string =>
   (
     ({
@@ -130,6 +160,7 @@ export const formatRating = (value: unknown): string => {
 
 export type RankBadgeType = {
   text: string;
+  short: string;
   colour: string;
   icon: string | null;
 };
@@ -137,12 +168,13 @@ export type RankBadgeType = {
 export const rankBadge = (entry: AccountType): RankBadgeType => {
   const value = entry.rank || UNRANKED;
   if (value === UNRANKED) {
-    return { text: "", colour: "", icon: null };
+    return { text: "", short: "", colour: "", icon: null };
   }
 
   if (entry.rank_kind === RankKind.RATING) {
     return {
       text: formatRating(value),
+      short: formatRating(value),
       colour: premierBand(value).colour,
       icon: null,
     };
@@ -150,6 +182,7 @@ export const rankBadge = (entry: AccountType): RankBadgeType => {
 
   return {
     text: rankLabel(value),
+    short: rankShortLabel(value),
     colour: "",
     icon: rankIconUrl(entry.rank_template, entry.rank_family),
   };
