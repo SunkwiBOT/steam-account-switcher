@@ -52,7 +52,7 @@
     aria-label={t.project_open_tooltip()}
     onclick={openRepository}
   >
-    <img class="brand-icon" src="/app-icon.png" alt="" draggable="false" />
+    <img class="brand-icon" src="/app-icon.svg" alt="" draggable="false" />
   </button>
 
   <div class="header-actions">
