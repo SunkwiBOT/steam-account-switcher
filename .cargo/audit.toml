@@ -1,0 +1,3 @@
+[advisories]
+# ! RUSTSEC-2023-0071 (rsa 0.9, pulled by steamguard): only RsaPublicKey::encrypt is used, to encrypt the password for Steam's login, so the Marvin timing side-channel on private-key decryption does not apply.
+ignore = ["RUSTSEC-2023-0071"]
