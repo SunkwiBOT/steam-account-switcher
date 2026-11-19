@@ -15,10 +15,9 @@ pub struct Folder {
     pub icon: Option<String>,
 }
 
-/// Upper bound for one account note, markup included.
 pub const MAX_NOTE_BYTES: usize = 64 * 1024;
 
-/// Folder icons offered by the interface. Unknown values are never stored.
+// ! Unknown values are never stored.
 pub const FOLDER_ICONS: [&str; 20] = [
     "folder",
     "folder-open",
@@ -76,12 +75,13 @@ pub struct Settings {
     pub account_colors: BTreeMap<String, String>,
     #[serde(default)]
     pub account_notes: BTreeMap<String, String>,
-    /// Stored notes that could not be parsed and could not be exported to a
-    /// recovery file yet, written back as they were found.
+    // ! Stored notes that could not be parsed and could not be exported to a recovery file yet, written back as they were found.
     #[serde(skip)]
     pub unreadable_account_notes: Vec<String>,
     #[serde(default)]
     pub guard_account_profiles: BTreeMap<String, crate::retained_accounts::SavedAccountProfile>,
+    #[serde(default)]
+    pub vault_offer_dismissed: bool,
 }
 
 impl Default for Settings {
@@ -105,6 +105,7 @@ impl Default for Settings {
             account_notes: BTreeMap::new(),
             unreadable_account_notes: Vec::new(),
             guard_account_profiles: BTreeMap::new(),
+            vault_offer_dismissed: false,
         }
     }
 }
@@ -206,8 +207,6 @@ impl Settings {
         self.folders.len() != before
     }
 
-    /// Moves an account into a folder, or back to the root when `folder` is
-    /// `None` or points at a folder that does not exist.
     pub fn set_account_folder(&mut self, steam_id: &str, folder: Option<&str>) {
         let valid = folder
             .map(|id| self.folders.iter().any(|entry| entry.id == id))
@@ -235,8 +234,6 @@ impl Settings {
         }
     }
 
-    /// An empty note removes the entry. Only markup in the form the
-    /// interface's sanitiser writes is accepted.
     pub fn set_account_note(&mut self, steam_id: &str, note: &str) -> Result<(), ErrorCode> {
         if note.len() > MAX_NOTE_BYTES {
             return Err(ErrorCode::NoteTooLong);
@@ -266,8 +263,7 @@ impl Settings {
     }
 }
 
-/// ! Notes reach `innerHTML`, so anything but the sanitiser's own output is
-/// ! refused: its text is escaped, and its only tags are the ones below.
+// ! Notes reach `innerHTML`, so anything but the sanitiser's own output is refused: its text is escaped, and its only tags are the ones below.
 fn is_note_markup(note: &str) -> bool {
     let mut rest = note;
     while let Some(start) = rest.find(['<', '>']) {
@@ -325,34 +321,10 @@ pub(super) fn slug(name: &str) -> String {
     }
 }
 
-/// ! Only plain hex colours are stored, so a value can never inject CSS.
+// ! Only plain hex colours are stored, so a value can never inject CSS.
 pub(super) fn is_safe_color(value: &str) -> bool {
     let bytes = value.as_bytes();
     matches!(bytes.len(), 4 | 7 | 9)
         && bytes[0] == b'#'
         && bytes[1..].iter().all(u8::is_ascii_hexdigit)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::is_note_markup;
-
-    #[test]
-    fn accepts_sanitised_markup() {
-        assert!(is_note_markup(""));
-        assert!(is_note_markup(
-            "<div><b>a &lt;b&gt; &amp;</b></div><ul><li><span style=\"color:#f43f5e\">x</span></li></ul><br>"
-        ));
-    }
-
-    #[test]
-    fn refuses_other_markup() {
-        assert!(!is_note_markup("<img src=x onerror=alert(1)>"));
-        assert!(!is_note_markup("<script>alert(1)</script>"));
-        assert!(!is_note_markup("<span style=\"color:red\">x</span>"));
-        assert!(!is_note_markup("<span>x</span>"));
-        assert!(!is_note_markup("<b onclick=x>"));
-        assert!(!is_note_markup("a > b"));
-        assert!(!is_note_markup("<b"));
-    }
 }

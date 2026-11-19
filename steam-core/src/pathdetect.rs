@@ -1,5 +1,4 @@
-//! Linux users can have several clients at once (distribution package,
-//! Flatpak and Snap), so the detector returns them all and lets the UI decide.
+// ! Linux users can have several clients at once (distribution package, Flatpak and Snap), so the detector returns them all and lets the UI decide.
 
 use std::path::{Path, PathBuf};
 
@@ -117,7 +116,7 @@ pub fn from_custom_path(path: &Path) -> Option<SteamInstallation> {
                 command_candidates(&[&["flatpak", "run", "com.valvesoftware.Steam"]])
             }
             InstallKind::Snap => command_candidates(&[&["snap", "run", "steam"], &["steam"]]),
-            _ => command_candidates(&[&["steam"], &["steam-native"]]),
+            _ => native_custom_commands(&root),
         };
         let registry = [base.join("registry.vdf"), root.join("registry.vdf")];
         let prefix = base.parent().map(Path::to_path_buf);
@@ -136,8 +135,7 @@ pub fn looks_like_steam_root(path: &Path) -> bool {
         || path.join("steam.sh").is_file()
 }
 
-/// Why a folder is, or is not, usable as a Steam root: Steam is often installed
-/// but never signed in, which is not the same as "not found".
+// ! Why a folder is, or is not, usable as a Steam root: Steam is often installed but never signed in, which is not the same as "not found".
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SteamFolder {
     NotADirectory,
@@ -157,8 +155,7 @@ impl SteamFolder {
     }
 }
 
-/// Classifies a single folder, used for the picker and for later reads so a
-/// path can never be accepted by one and rejected by the other.
+// ! Classifies a single folder, used for the picker and for later reads so a path can never be accepted by one and rejected by the other.
 pub fn classify_steam_folder(path: &Path) -> SteamFolder {
     if !path.is_dir() {
         return SteamFolder::NotADirectory;
@@ -209,7 +206,7 @@ fn linux_candidates(home: &Path) -> Vec<SteamInstallation> {
         home.join(".steam/root"),
         home.join(".steam/debian-installation"),
     ];
-    // A non-default XDG_DATA_HOME moves the install somewhere else entirely.
+    // ! A non-default XDG_DATA_HOME moves the install somewhere else entirely.
     if let Some(xdg) = std::env::var_os("XDG_DATA_HOME") {
         let steam = PathBuf::from(xdg).join("Steam");
         if !native_roots.contains(&steam) {
@@ -312,6 +309,18 @@ fn command_candidates(commands: &[&[&str]]) -> Vec<Vec<String>> {
         .collect()
 }
 
+// ! A custom root's own `steam.sh` (the classic Linux Runtime layout) is preferred over whatever `steam` resolves to on `PATH`, keeping the launch tied to the edited installation.
+#[cfg(not(windows))]
+fn native_custom_commands(root: &Path) -> Vec<Vec<String>> {
+    let mut commands = Vec::new();
+    let launcher = root.join("steam.sh");
+    if launcher.is_file() {
+        commands.push(vec![launcher.to_string_lossy().to_string()]);
+    }
+    commands.extend(command_candidates(&[&["steam"], &["steam-native"]]));
+    commands
+}
+
 #[cfg(not(windows))]
 fn build_installation(
     kind: InstallKind,
@@ -355,8 +364,7 @@ fn build_installation_windows(root: &Path, launch_command: Vec<String>) -> Steam
         kind: InstallKind::Windows,
         config_dir: config_dir.clone(),
         loginusers_path: config_dir.join("loginusers.vdf"),
-        // The Windows client stores auto-login state in the real registry, so
-        // this path only exists for diagnostics.
+        // ! The Windows client stores auto-login state in the real registry, so this path only exists for diagnostics.
         registry_path: root.join("registry.vdf"),
         userdata_dir: root.join("userdata"),
         launch_command,
@@ -380,8 +388,7 @@ fn choose_launch_command(commands: &[Vec<String>]) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// The registry file is shared by every native candidate, so it only counts once
-/// the candidate's own folder exists; otherwise missing roots would be listed.
+// ! The registry file is shared by every native candidate, so it only counts once the candidate's own folder exists; otherwise missing roots would be listed.
 fn looks_installed(installation: &SteamInstallation) -> bool {
     installation.root.is_dir()
         && (installation.config_dir.is_dir()

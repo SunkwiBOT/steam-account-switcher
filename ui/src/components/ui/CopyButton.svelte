@@ -5,6 +5,7 @@
 
   import { copyFeedback, copyValue } from "../../lib/state/clipboard.svelte";
   import { accountById, showToast } from "../../lib/state/state.svelte";
+  import { ToastKind } from "../../lib/state/state.constants";
   import CopyIndicator from "./CopyIndicator.svelte";
 
   type CopyButtonPropsType = {
@@ -48,8 +49,11 @@
         const value = await read();
         if (key === copyKey) await copyValue(value, key, valueLabel, account);
       }
-    } catch (cause) {
-      showToast(errorMessage(cause), false, account);
+    } catch (cause: unknown) {
+      showToast(ToastKind.ERROR, t.toast_error_title(), {
+        description: errorMessage(cause),
+        account,
+      });
     } finally {
       pending = false;
     }

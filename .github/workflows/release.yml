@@ -1,7 +1,7 @@
 name: release
 run-name: release v${{ inputs.version }}
 
-# Starting it by hand publishes the version typed in the input: the workflow
+# ! Starting it by hand publishes the version typed in the input: the workflow
 # writes it into the project, tags it, then builds and signs the Linux and
 # Windows bundles and creates the GitHub release the application updates from.
 on:
@@ -16,8 +16,7 @@ concurrency:
   group: release
   cancel-in-progress: false
 
-permissions:
-  contents: write
+permissions: {}
 
 env:
   CARGO_TERM_COLOR: always
@@ -25,13 +24,15 @@ env:
 jobs:
   version:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       version: ${{ steps.check.outputs.version }}
       tagged: ${{ steps.tag.outputs.tagged }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          # Tags tell whether the requested version is already published.
+          # ! Tags tell whether the requested version is already published.
           fetch-depth: 0
 
       - name: Check the version
@@ -64,7 +65,7 @@ jobs:
 
           git tag -a "$version" -m "$version - Steam Account Switcher"
           # ! Only the tag is pushed: the release commit stays off `main`, so
-          # ! the branch keeps exactly the history written by hand.
+          # the branch keeps exactly the history written by hand.
           git push origin "refs/tags/$version"
           echo "tagged=true" >> "$GITHUB_OUTPUT"
 
@@ -79,8 +80,10 @@ jobs:
           - platform: windows-latest
             args: --bundles nsis -- --locked
     runs-on: ${{ matrix.platform }}
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: v${{ needs.version.outputs.version }}
 
@@ -92,34 +95,38 @@ jobs:
             libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
             librsvg2-dev patchelf rpm file
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
-          cache: npm
+          node-version: 24
 
       - name: Install the interface dependencies
         run: npm ci
 
-      # The Paraglide message modules are generated and git-ignored, so a fresh
+      # ! The Paraglide message modules are generated and git-ignored, so a fresh
       # checkout has none until the interface is built once.
       - name: Generate the interface messages
         run: npm run build
 
       - name: Check the interface
-        run: |
-          npx --no-install svelte-check --tsconfig ./ui/tsconfig.json
-          npx --no-install oxlint ui/src vite.config.js
-          npx --no-install prettier --check .
+        run: npm run verify
 
       - name: Check Rust
         run: |
           cargo fmt --all --check
           cargo clippy --locked --workspace --all-targets -- -D warnings
+
+      - uses: taiki-e/install-action@75a7c0f87bd666af3cdb75c5b9e9d03ab6044e6f # v2.90.6
+        with:
+          tool: cargo-audit
+
+      - name: Audit Rust dependencies
+        run: cargo audit
 
       - name: Build, sign and publish
         uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1.0.0
@@ -151,7 +158,57 @@ jobs:
   finalize:
     needs: [version, publish]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: v${{ needs.version.outputs.version }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      # ! The job holding the updater signing key is the one place in this workflow
+      # that ran an unpinned `npx --yes`: it now runs the exact version this release
+      # was checked out at, already resolved and locked by `npm ci`.
+      - name: Install the interface dependencies
+        run: npm ci --ignore-scripts
+
+      # ! tauri-action points latest.json at API URLs limited to 60 requests an hour per IP, and
+      # the NSIS-only manifest has no entry a portable Windows copy could self-update from: both
+      # are fixed here, before the release goes public.
+      - name: Point latest.json at the public downloads and sign the portable copy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          tag="v$RELEASE_VERSION"
+          base="https://github.com/$GH_REPO/releases/download/$tag"
+          gh release download "$tag" --pattern latest.json --pattern SteamAccountSwitcher-portable.exe --dir draft
+          gh release view "$tag" --json assets \
+            --jq '[.assets[] | {key: (.apiUrl | split("/") | last), value: .name}] | from_entries' \
+            > draft/names.json
+          jq --slurpfile names draft/names.json --arg base "$base/" \
+            '.platforms |= map_values(.url = ($base + ($names[0][.url | split("/") | last] // error("no asset for " + .url))))' \
+            draft/latest.json > draft/rewritten.json
+
+          # ! The portable copy ships no Tauri bundle the CLI signs on its own during `publish`:
+          # it is signed here instead, against the same version, so the app can verify it like
+          # every other platform. `--app-version` is what `requireSignedVersion` checks against.
+          npx --no-install tauri signer sign --app-version "$RELEASE_VERSION" draft/SteamAccountSwitcher-portable.exe
+          jq --arg url "$base/SteamAccountSwitcher-portable.exe" \
+            --arg signature "$(cat draft/SteamAccountSwitcher-portable.exe.sig)" \
+            '.platforms["windows-x86_64-portable"] = {url: $url, signature: $signature}' \
+            draft/rewritten.json > latest.json
+
+          # ! The two builds rewrite latest.json in turn: one finishing at the same time as the
+          # other can drop its system.
+          jq -e '.platforms | has("linux-x86_64") and has("windows-x86_64") and has("windows-x86_64-portable")' latest.json > /dev/null \
+            || { echo "::error::latest.json lacks a platform: $(jq -c '.platforms | keys' latest.json)"; exit 1; }
+          gh release upload "$tag" latest.json --clobber
+
       - name: Publish the complete release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -159,17 +216,19 @@ jobs:
           RELEASE_VERSION: ${{ needs.version.outputs.version }}
         run: gh release edit "v$RELEASE_VERSION" --draft=false
 
-  # A failed build must not burn its version number: the tag and the draft release
+  # ! A failed build must not burn its version number: the tag and the draft release
   # are removed so the same version can be published again after the fix.
   # ! After a failed run, start a NEW run for the same version: "Re-run failed
-  # ! jobs" reuses the first attempt's outputs, but the tag it checks out was
-  # ! withdrawn below, so every publish job fails at checkout.
+  # jobs" reuses the first attempt's outputs, but the tag it checks out was
+  # withdrawn below, so every publish job fails at checkout.
   withdraw:
-    needs: [version, publish]
+    needs: [version, publish, finalize]
     # ! Only a run that created its own tag may remove it: a refused version must
-    # ! never delete the release already published under that number.
+    # never delete the release already published under that number.
     if: failure() && needs.version.outputs.tagged == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Remove the tag and the draft release
         env:

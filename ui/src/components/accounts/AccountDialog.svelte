@@ -1,16 +1,19 @@
 <script lang="ts">
   import DialogHeader from "../dialogs/DialogHeader.svelte";
-  import { focusTrap } from "../../lib/actions/focus-trap";
   import { t, formatDate, relativeDate } from "../../lib/i18n/i18n.svelte";
 
   import { formatSeconds } from "../../lib/api/api";
   import ColorSwatches from "../folders/ColorSwatches.svelte";
+  import { openAccountReport } from "../../lib/actions/reports.svelte";
+  import { removeAccount, switchAccount } from "../../lib/actions/account-lifecycle.svelte";
   import {
-    openAccountReport,
-    removeAccount,
-    switchAccount,
-  } from "../../lib/actions/actions.svelte";
-  import { openDropdown } from "../../lib/state/menus.svelte";
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuTrigger,
+  } from "$lib/components/ui/dropdown-menu/index.js";
+  import SelectSetting from "../ui/SelectSetting.svelte";
   import {
     formatRating,
     premierBand,
@@ -18,9 +21,10 @@
     UNRANKED,
     rankLabel,
   } from "../../lib/ranks/ranks";
-  import { RankKind } from "../../lib/ranks/ranks.constants";
-  import { accountById, app, folders, run, trackingEnabled } from "../../lib/state/state.svelte";
-  import type { AccountType, RankTemplateType } from "../../lib/types";
+  import { accountById, app, run, trackingEnabled } from "../../lib/state/state.svelte";
+  import { folders } from "../../lib/state/folders.svelte";
+  import type { AccountDto } from "../../lib/bindings/AccountDto";
+  import type { RankTemplateDto } from "../../lib/bindings/RankTemplateDto";
   import ActionButton from "../ui/ActionButton.svelte";
   import AccountIdentity from "./AccountIdentity.svelte";
   import AccountCaption from "./AccountCaption.svelte";
@@ -40,23 +44,24 @@
     Trophy,
     UserRound,
   } from "@lucide/svelte";
+  import AppDialog from "../dialogs/AppDialog.svelte";
+  import { DialogContent } from "$lib/components/ui/dialog/index.js";
+  let rankOpen = $state(false);
 
-  const entry = $derived<AccountType | null>(
+  const entry = $derived<AccountDto | null>(
     app.openAccountId ? accountById(app.openAccountId) : null,
   );
-  const templates = $derived<RankTemplateType[]>(app.snapshot?.rank_templates ?? []);
-  const template = $derived<RankTemplateType | undefined>(
+  const templates = $derived<RankTemplateDto[]>(app.snapshot?.rank_templates ?? []);
+  const template = $derived<RankTemplateDto | undefined>(
     templates.find((candidate) => candidate.id === entry?.rank_template) ?? templates[0],
   );
-  const isRating = $derived(template?.kind === RankKind.RATING);
+  const isRating = $derived(template?.kind === "RATING");
   const rankIcon = $derived(template && entry ? rankIconUrl(template.id, entry.rank_family) : null);
   const folderName = $derived(
     folders().find((folder) => folder.id === entry?.folder_id)?.name ?? t.folder_none(),
   );
 
   let rating = $state<string | number>("");
-  //! Every snapshot re-derives `entry`; only a change of account or of the
-  //! stored rank may replace what is being typed.
   let syncedRank = $state<string | null>(null);
 
   $effect(() => {
@@ -80,71 +85,26 @@
     app.openAccountId = null;
   };
 
-  const pickTemplate = (event: MouseEvent): void => {
-    const anchor = event.currentTarget;
-    if (!entry || !(anchor instanceof HTMLElement)) {
-      return;
-    }
-    const account = entry;
-    openDropdown({
-      anchor,
-      value: account.rank_template,
-      options: templates.map((item) => ({ value: item.id, label: item.label })),
-      onSelect: (id) =>
-        run("set_rank", { steamId: account.steam_id, template: id, rank: account.rank }),
-    });
+  const selectTemplate = (id: string): void => {
+    if (!entry) return;
+    void run("set_rank", { steamId: entry.steam_id, template: id, rank: entry.rank });
   };
 
-  const pickRank = (event: MouseEvent): void => {
-    const anchor = event.currentTarget;
-    if (!template || !entry || !(anchor instanceof HTMLElement)) {
-      return;
-    }
-    const account = entry;
-    const ladder = template;
-    const iconFor = (family: string): string => {
-      const url = rankIconUrl(ladder.id, family);
-      return url
-        ? `<img src="${url}" alt="" style="width:18px;height:18px;object-fit:contain" />`
-        : "";
-    };
-    openDropdown({
-      anchor,
-      value: account.rank,
-      options: ladder.ranks.map((rank) => ({
-        value: rank.value,
-        label: rankLabel(rank.value),
-        icon: iconFor(rank.family),
-      })),
-      onSelect: (rank) => run("set_rank", { steamId: account.steam_id, template: ladder.id, rank }),
-    });
+  const selectRank = (rank: string): void => {
+    if (!entry || !template) return;
+    void run("set_rank", { steamId: entry.steam_id, template: template.id, rank });
   };
 
-  const pickFolder = (event: MouseEvent): void => {
-    const anchor = event.currentTarget;
-    if (!entry || !(anchor instanceof HTMLElement)) {
-      return;
-    }
-    const account = entry;
-    openDropdown({
-      anchor,
-      value: account.folder_id ?? "",
-      options: [
-        { value: "", label: t.folder_none() },
-        ...folders()
-          .filter((folder) => !folder.system)
-          .map((folder) => ({ value: folder.id, label: folder.name })),
-      ],
-      onSelect: (value) =>
-        run("assign_folder", { steamId: account.steam_id, folderId: value || null }),
-    });
+  const selectFolder = (folderId: string): void => {
+    if (!entry) return;
+    void run("assign_folder", { steamId: entry.steam_id, folderId: folderId || null });
   };
 
   const setRating = (): void => {
     if (!entry) {
       return;
     }
-    run("set_rank", { steamId: entry.steam_id, template: "cs2-premier", rank: ratingDigits });
+    void run("set_rank", { steamId: entry.steam_id, template: "cs2-premier", rank: ratingDigits });
   };
 
   const openSteamGuard = (): void => {
@@ -155,17 +115,11 @@
 </script>
 
 {#if entry && !app.steamGuardOpen && !app.vaultOpen && !app.settingsOpen && !(app.report && trackingEnabled())}
-  <div class="modal" inert={app.steamGuardOpen || app.vaultOpen}>
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="modal-backdrop" onclick={close}></div>
-    <div
-      class="dialog account-dialog"
-      role="dialog"
-      aria-modal="true"
+  <AppDialog open={true} onclose={close}>
+    <DialogContent
+      showCloseButton={false}
+      class="sm:max-w-[1160px] max-h-[88vh] flex flex-col overflow-hidden"
       aria-labelledby={`${uid}-title`}
-      tabindex="-1"
-      use:focusTrap={{ onEscape: close }}
     >
       <DialogHeader
         id={`${uid}-title`}
@@ -220,16 +174,14 @@
             <section class="account-block">
               <h3 class="block-title"><Trophy size={15} /> {t.rank_label()}</h3>
               <div class="rank-controls">
-                <button
-                  class="select-button"
-                  type="button"
-                  aria-haspopup="listbox"
-                  onclick={pickTemplate}
+                <SelectSetting
+                  value={template?.id ?? ""}
+                  options={templates.map((item) => ({ value: item.id, label: item.label }))}
+                  label={template?.label ?? t.rank_label()}
+                  ariaLabel={t.rank_label()}
                   disabled={!entry.is_local}
-                >
-                  <span>{template?.label ?? t.rank_label()}</span>
-                  <span class="picker-caret"><ChevronDown size={14} /></span>
-                </button>
+                  onselect={selectTemplate}
+                />
 
                 {#if isRating}
                   <div class="rating-row">
@@ -261,19 +213,36 @@
                     <span class="rating-hint">{t.rank_premier_placeholder()}</span>
                   </div>
                 {:else}
-                  <button
-                    class="rank-picker"
-                    type="button"
-                    aria-haspopup="listbox"
-                    onclick={pickRank}
-                    disabled={!entry.is_local}
-                  >
-                    {#if rankIcon}
-                      <img class="rank-icon" src={rankIcon} alt="" />
-                    {/if}
-                    <span>{rankLabel(entry.rank)}</span>
-                    <span class="picker-caret"><ChevronDown size={14} /></span>
-                  </button>
+                  <DropdownMenu bind:open={rankOpen}>
+                    <DropdownMenuTrigger
+                      class="rank-picker"
+                      aria-haspopup="listbox"
+                      disabled={!entry.is_local}
+                    >
+                      {#if rankIcon}
+                        <img class="rank-icon" src={rankIcon} alt="" />
+                      {/if}
+                      <span>{rankLabel(entry.rank)}</span>
+                      <span class="picker-caret"><ChevronDown size={14} /></span>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuRadioGroup value={entry.rank} onValueChange={selectRank}>
+                        {#each template?.ranks ?? [] as rank (rank.value)}
+                          {@const icon = template ? rankIconUrl(template.id, rank.family) : null}
+                          <DropdownMenuRadioItem value={rank.value}>
+                            {#if icon}
+                              <img
+                                src={icon}
+                                alt=""
+                                style="width:18px;height:18px;object-fit:contain"
+                              />
+                            {/if}
+                            {rankLabel(rank.value)}
+                          </DropdownMenuRadioItem>
+                        {/each}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 {/if}
               </div>
             </section>
@@ -306,16 +275,19 @@
           {#if entry.is_local}
             <section class="account-block">
               <h3 class="block-title"><Folder size={15} /> {t.folder_label()}</h3>
-              <button
-                class="select-button"
-                type="button"
-                aria-haspopup="listbox"
-                onclick={pickFolder}
+              <SelectSetting
+                value={entry.folder_id ?? ""}
+                options={[
+                  { value: "", label: t.folder_none() },
+                  ...folders()
+                    .filter((item) => !item.system)
+                    .map((item) => ({ value: item.id, label: item.name })),
+                ]}
+                label={folderName}
+                ariaLabel={t.folder_label()}
                 disabled={!entry.is_local}
-              >
-                <span>{folderName}</span>
-                <span class="picker-caret"><ChevronDown size={14} /></span>
-              </button>
+                onselect={selectFolder}
+              />
             </section>
           {/if}
 
@@ -351,17 +323,24 @@
           />
         {/if}
         {#if entry.is_local}
+          {@const alreadyActive = entry.is_current && app.snapshot?.steam_running === true}
           <button
             class="button primary"
             type="button"
-            disabled={entry.is_current}
+            disabled={alreadyActive}
             onclick={() => switchAccount(entry.steam_id)}
           >
             <ArrowRightLeft size={15} />
-            <span>{entry.is_current ? t.account_active_status() : t.account_switch_action()}</span>
+            <span>
+              {alreadyActive
+                ? t.account_active_status()
+                : entry.is_current
+                  ? t.account_start_action()
+                  : t.account_switch_action()}
+            </span>
           </button>
         {/if}
       </footer>
-    </div>
-  </div>
+    </DialogContent>
+  </AppDialog>
 {/if}

@@ -1,7 +1,8 @@
 <script lang="ts">
   import { t, folderLabel } from "../../lib/i18n/i18n.svelte";
 
-  import { app, currentFolder } from "../../lib/state/state.svelte";
+  import { app } from "../../lib/state/state.svelte";
+  import { currentFolder } from "../../lib/state/folders.svelte";
 
   const folder = $derived(currentFolder());
 </script>

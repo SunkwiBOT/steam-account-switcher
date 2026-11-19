@@ -6,17 +6,16 @@
     GuardAction,
     LoginPurpose,
     SteamGuardField,
-    GuardKind,
   } from "../../lib/steam-guard/steam-guard.constants";
   import ActionButton from "../ui/ActionButton.svelte";
   import type { SteamGuardControllerType } from "../../lib/steam-guard/steam-guard.svelte";
-  import type { AccountType } from "../../lib/types";
+  import type { AccountDto } from "../../lib/bindings/AccountDto";
   import { ArrowRight, LogIn, QrCode, X } from "@lucide/svelte";
   import AccountIdentity from "../accounts/AccountIdentity.svelte";
   import PasswordInput from "../ui/PasswordInput.svelte";
   import SteamGuardCode from "./SteamGuardCode.svelte";
   import FormError from "../ui/FormError.svelte";
-  type SteamGuardLoginPropsType = { controller: SteamGuardControllerType; entry: AccountType };
+  type SteamGuardLoginPropsType = { controller: SteamGuardControllerType; entry: AccountDto };
 
   let { controller, entry }: SteamGuardLoginPropsType = $props();
   const uid = $props.id();
@@ -117,18 +116,18 @@
     </p>
     <p class="steamguard-note">
       {#if controller.needsExternalConfirmation()}
-        {controller.selectedGuard === GuardKind.EMAIL_CONFIRMATION
+        {controller.selectedGuard === "EMAIL_CONFIRMATION"
           ? t.guard_login_email_approval_hint()
           : t.guard_login_device_approval_hint()}
       {:else if controller.guardNeedsCode}
-        {controller.selectedGuard === GuardKind.EMAIL_CODE
+        {controller.selectedGuard === "EMAIL_CODE"
           ? t.guard_login_email_code_hint()
           : t.guard_login_device_code_hint()}
       {:else}
         {t.guard_login_continue_hint()}
       {/if}
     </p>
-    {#if controller.selectedGuard === GuardKind.DEVICE_CODE && entry.has_authenticator}
+    {#if controller.selectedGuard === "DEVICE_CODE" && entry.has_authenticator}
       <SteamGuardCode steamId={entry.steam_id} />
       <p class="steamguard-note">
         {t.guard_login_saved_code_hint()}

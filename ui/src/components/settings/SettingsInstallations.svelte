@@ -1,15 +1,18 @@
 <script lang="ts">
+  import { settingsDraft } from "../../lib/state/settings-draft.svelte";
   import { installationLabel } from "../../lib/state/status";
   import MessageText from "../ui/MessageText.svelte";
   import { t, rich } from "../../lib/i18n/i18n.svelte";
 
   import SettingToggle from "./SettingToggle.svelte";
   import ActionButton from "../ui/ActionButton.svelte";
-  import { app, EMPTY_SETTINGS, run, showToast } from "../../lib/state/state.svelte";
-  import type { SettingsType } from "../../lib/types";
+  import { app, run, showToast } from "../../lib/state/state.svelte";
+  import { EMPTY_SETTINGS } from "../../lib/state/settings";
+  import { ToastKind } from "../../lib/state/state.constants";
+  import type { SettingsDto } from "../../lib/bindings/SettingsDto";
   import { Eye, EyeOff, HardDrive, Plus, Trash2 } from "@lucide/svelte";
 
-  const settings = $derived<SettingsType>(app.snapshot?.settings ?? EMPTY_SETTINGS);
+  const settings = $derived<SettingsDto>(app.snapshot?.settings ?? EMPTY_SETTINGS);
   const entries = $derived(settings.entries);
 
   let path = $state("");
@@ -24,7 +27,7 @@
     const result = await run("add_custom_installation", { path: path.trim() });
     adding = false;
     if (result) {
-      showToast(t.installation_add_success(), true);
+      showToast(ToastKind.SUCCESS, t.installation_add_success());
       path = "";
     }
   };
@@ -42,7 +45,10 @@
     await run(
       "remove_custom_installation",
       { root },
-      { success: rich(t.installation_remove_success, { installation: label }) },
+      {
+        successTitle: t.toast_installation_removed_title(),
+        success: rich(t.installation_remove_success, { installation: label }),
+      },
     );
     delete pending[root];
   };
@@ -56,8 +62,11 @@
     </h3>
     <SettingToggle
       label={t.installation_selector_label()}
-      checked={settings.show_installation_selector !== false}
-      onchange={(showInstallationSelector) => run("update_settings", { showInstallationSelector })}
+      checked={settingsDraft.value.showInstallationSelector}
+      disabled={settingsDraft.saving}
+      onchange={async (showInstallationSelector) => {
+        settingsDraft.set("showInstallationSelector", showInstallationSelector);
+      }}
     />
     <div class="settings-list">
       {#if entries.length === 0}

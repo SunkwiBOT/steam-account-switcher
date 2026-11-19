@@ -3,9 +3,9 @@
 
   import { formatSeconds } from "../../lib/api/api";
   import { drawChart, type ChartBarType } from "../../lib/playtime/chart";
-  import type { DailyPointType } from "../../lib/types";
+  import type { DailyPointDto } from "../../lib/bindings/DailyPointDto";
 
-  type DailyChartPropsType = { points: DailyPointType[] };
+  type DailyChartPropsType = { points: DailyPointDto[] };
 
   let { points }: DailyChartPropsType = $props();
 
@@ -53,15 +53,18 @@
   };
 </script>
 
-<div class="chart-wrap">
+<div class="relative">
   <canvas
-    class="chart"
+    class="block h-[220px] w-full rounded-md border border-[var(--border)] bg-[var(--base)]"
     bind:this={canvas}
     onmousemove={hover}
     onmouseleave={() => (tooltip = { ...tooltip, text: "" })}
   ></canvas>
   {#if tooltip.text}
-    <div class="chart-tooltip" style="display:block;left:{tooltip.left}px;top:{tooltip.top}px">
+    <div
+      class="pointer-events-none absolute z-[5] rounded-md border border-[var(--border-strong)] bg-[var(--panel)] px-2 py-1 text-[12px] text-[var(--text-strong)]"
+      style="left:{tooltip.left}px;top:{tooltip.top}px"
+    >
       {tooltip.text}
     </div>
   {/if}

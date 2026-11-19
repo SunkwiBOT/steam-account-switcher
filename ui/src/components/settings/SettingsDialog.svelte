@@ -1,6 +1,8 @@
 <script lang="ts">
   import DialogHeader from "../dialogs/DialogHeader.svelte";
-  import { focusTrap } from "../../lib/actions/focus-trap";
+  import AppDialog from "../dialogs/AppDialog.svelte";
+  import { DialogContent } from "$lib/components/ui/dialog/index.js";
+  import { Tabs, TabsList, TabsTrigger, TabsContent } from "$lib/components/ui/tabs/index.js";
   import { t } from "../../lib/i18n/i18n.svelte";
 
   import { SettingsSection } from "../../lib/state/state.constants";
@@ -26,6 +28,8 @@
 
   import VaultControls from "../vault/VaultControls.svelte";
   import VaultBackups from "../vault/VaultBackups.svelte";
+  import UnsavedBar from "../ui/UnsavedBar.svelte";
+  import { settingsDraft } from "../../lib/state/settings-draft.svelte";
 
   const sections = $derived([
     {
@@ -41,71 +45,82 @@
     { id: SettingsSection.UPDATES, label: t.settings_updates_title(), icon: Download },
   ]);
   const uid = $props.id();
+
+  const close = (): void => {
+    if (settingsDraft.saving || settingsDraft.dirty) return;
+    app.settingsOpen = false;
+  };
 </script>
 
-{#if app.settingsOpen}
-  <div class="modal" inert={app.vaultOpen}>
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="modal-backdrop" onclick={() => (app.settingsOpen = false)}></div>
-    <div
-      class="dialog settings-dialog"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={`${uid}-title`}
-      tabindex="-1"
-      use:focusTrap={{ onEscape: () => (app.settingsOpen = false) }}
-    >
-      <DialogHeader
-        id={`${uid}-title`}
-        title={t.settings_title()}
-        icon={Settings}
-        onclose={() => (app.settingsOpen = false)}
-      />
+<AppDialog open={app.settingsOpen} onclose={close}>
+  <DialogContent
+    showCloseButton={false}
+    class="sm:max-w-3xl max-h-[86vh] flex flex-col overflow-hidden"
+    aria-labelledby={`${uid}-title`}
+  >
+    <DialogHeader id={`${uid}-title`} title={t.settings_title()} icon={Settings} onclose={close} />
 
-      <div class="settings-layout">
-        <nav class="settings-nav" aria-label={t.settings_navigation_label()}>
+    <div class="settings-layout">
+      <Tabs
+        value={app.settingsSection}
+        onValueChange={(value) => (app.settingsSection = value as SettingsSection)}
+        orientation="vertical"
+        class="contents"
+      >
+        <TabsList aria-label={t.settings_navigation_label()}>
           {#each sections as section (section.id)}
-            <button
-              type="button"
-              class="settings-tab"
-              class:active={app.settingsSection === section.id}
-              onclick={() => (app.settingsSection = section.id)}
-            >
+            <TabsTrigger value={section.id}>
               <section.icon size={15} />
               {section.label}
-            </button>
+            </TabsTrigger>
           {/each}
-        </nav>
+        </TabsList>
 
         <div class="settings-body">
-          {#if app.settingsSection === SettingsSection.PREFERENCES}
-            <SettingsPreferences />
-          {:else if app.settingsSection === SettingsSection.FOLDERS}
-            <SettingsFolders />
-          {:else if app.settingsSection === SettingsSection.INSTALLATIONS}
-            <SettingsInstallations />
-          {:else if app.settingsSection === SettingsSection.PLAYTIME}
-            <SettingsPlaytime />
-          {:else if app.settingsSection === SettingsSection.VAULT}
-            <section class="settings-card">
-              <h3 class="settings-card-title"><Lock size={15} /> {t.vault_title()}</h3>
-              <VaultControls showSettings />
-            </section>
-            <VaultBackups />
-          {:else if app.settingsSection === SettingsSection.LOGS}
-            <SettingsLogs />
-          {:else}
-            <SettingsUpdates />
-          {/if}
+          <TabsContent value={SettingsSection.PREFERENCES}>
+            {#if app.settingsSection === SettingsSection.PREFERENCES}<SettingsPreferences />{/if}
+          </TabsContent>
+          <TabsContent value={SettingsSection.FOLDERS}>
+            {#if app.settingsSection === SettingsSection.FOLDERS}<SettingsFolders />{/if}
+          </TabsContent>
+          <TabsContent value={SettingsSection.INSTALLATIONS}>
+            {#if app.settingsSection === SettingsSection.INSTALLATIONS}<SettingsInstallations
+              />{/if}
+          </TabsContent>
+          <TabsContent value={SettingsSection.PLAYTIME}>
+            {#if app.settingsSection === SettingsSection.PLAYTIME}<SettingsPlaytime />{/if}
+          </TabsContent>
+          <TabsContent value={SettingsSection.VAULT}>
+            {#if app.settingsSection === SettingsSection.VAULT}
+              <section class="settings-card">
+                <h3 class="settings-card-title"><Lock size={15} /> {t.vault_title()}</h3>
+                <VaultControls showSettings />
+              </section>
+              <VaultBackups />
+            {/if}
+          </TabsContent>
+          <TabsContent value={SettingsSection.LOGS}>
+            {#if app.settingsSection === SettingsSection.LOGS}<SettingsLogs />{/if}
+          </TabsContent>
+          <TabsContent value={SettingsSection.UPDATES}>
+            {#if app.settingsSection === SettingsSection.UPDATES}<SettingsUpdates />{/if}
+          </TabsContent>
         </div>
-      </div>
-
-      <footer class="dialog-foot">
-        <button class="button" type="button" onclick={() => (app.settingsOpen = false)}
-          ><X size={15} /> {t.common_close()}</button
-        >
-      </footer>
+      </Tabs>
     </div>
-  </div>
-{/if}
+
+    {#if settingsDraft.dirty}
+      <UnsavedBar
+        saving={settingsDraft.saving}
+        oncancel={settingsDraft.cancel}
+        onsave={settingsDraft.save}
+      />
+    {/if}
+
+    <footer class="dialog-foot">
+      <button class="button" type="button" onclick={close}
+        ><X size={15} /> {t.common_close()}</button
+      >
+    </footer>
+  </DialogContent>
+</AppDialog>

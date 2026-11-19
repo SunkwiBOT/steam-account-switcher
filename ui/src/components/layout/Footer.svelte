@@ -2,15 +2,17 @@
   import { formatSeconds } from "../../lib/api/api";
   import { t } from "../../lib/i18n/i18n.svelte";
 
-  import { openMachineReport, openRepository } from "../../lib/actions/actions.svelte";
+  import { openMachineReport } from "../../lib/actions/reports.svelte";
+  import { openRepository } from "../../lib/actions/repository.svelte";
   import { app, trackingEnabled } from "../../lib/state/state.svelte";
+  import { layout } from "../../lib/state/layout.svelte";
   import { Monitor } from "@lucide/svelte";
   import AsyncIcon from "../ui/AsyncIcon.svelte";
 
   const snapshot = $derived(app.snapshot);
 </script>
 
-<footer class="footer">
+<footer class="footer" bind:offsetHeight={layout.footerHeight}>
   <button
     class="version"
     type="button"

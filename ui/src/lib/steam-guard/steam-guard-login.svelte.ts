@@ -1,19 +1,19 @@
-import { ErrorApiMessage } from "../errors/errors.constants";
 import { resolveErrorCode } from "../errors/errors.svelte";
 import {
   GuardAction,
   SteamGuardScreen,
   SteamGuardField,
   LoginPurpose,
-  GuardKind,
 } from "./steam-guard.constants";
+import type { GuardKind } from "../bindings/GuardKind";
 import type { GuardSessionType } from "./steam-guard-session.svelte";
-import type { AccountType, LoginBeginType } from "../types";
+import type { AccountDto } from "../bindings/AccountDto";
+import type { LoginBegin } from "../bindings/LoginBegin";
 import { invoke } from "../api/tauri";
 
 export type LoginDepsType = {
   session: GuardSessionType;
-  entry: () => AccountType | null;
+  entry: () => AccountDto | null;
   startLink: () => Promise<void>;
   completeSignIn: () => Promise<void>;
   resetAll: () => void;
@@ -23,14 +23,14 @@ export const createLoginController = (deps: LoginDepsType) => {
   const { session } = deps;
 
   let password = $state("");
-  let loginBegin = $state<LoginBeginType | null>(null);
+  let loginBegin = $state<LoginBegin | null>(null);
   let selectedGuard = $state<GuardKind | null>(null);
   let loginCode = $state("");
   let waiting = $state(false);
   let loginPurpose = $state<LoginPurpose>(LoginPurpose.LINK);
 
   const guardNeedsCode = $derived(
-    selectedGuard === GuardKind.DEVICE_CODE || selectedGuard === GuardKind.EMAIL_CODE,
+    selectedGuard === "DEVICE_CODE" || selectedGuard === "EMAIL_CODE",
   );
 
   const reset = (): void => {
@@ -59,17 +59,17 @@ export const createLoginController = (deps: LoginDepsType) => {
     if (cancelled) deps.resetAll();
   };
 
-  const chooseMethod = (methods: LoginBeginType["methods"]): void => {
+  const chooseMethod = (methods: LoginBegin["methods"]): void => {
     const codeMethod = methods.find(
-      (method) => method.kind === GuardKind.DEVICE_CODE || method.kind === GuardKind.EMAIL_CODE,
+      (method) => method.kind === "DEVICE_CODE" || method.kind === "EMAIL_CODE",
     );
-    selectedGuard = codeMethod?.kind ?? methods[0]?.kind ?? null;
+    selectedGuard = codeMethod?.kind ?? methods.at(0)?.kind ?? null;
   };
 
   const startPassword = async (): Promise<void> => {
     const entry = deps.entry();
     if (!entry || !password) {
-      session.fail(ErrorApiMessage.STEAM_PASSWORD_REQUIRED, SteamGuardField.PASSWORD);
+      session.fail("STEAM_PASSWORD_REQUIRED", SteamGuardField.PASSWORD);
       return;
     }
     const begin = await session.guard(
@@ -98,10 +98,7 @@ export const createLoginController = (deps: LoginDepsType) => {
   };
 
   const needsExternalConfirmation = (): boolean => {
-    return (
-      selectedGuard === GuardKind.DEVICE_CONFIRMATION ||
-      selectedGuard === GuardKind.EMAIL_CONFIRMATION
-    );
+    return selectedGuard === "DEVICE_CONFIRMATION" || selectedGuard === "EMAIL_CONFIRMATION";
   };
 
   const finishLogin = async (kind: GuardKind | null, value: string | null): Promise<void> => {
@@ -133,7 +130,7 @@ export const createLoginController = (deps: LoginDepsType) => {
       } else {
         await deps.completeSignIn();
       }
-    } catch (cause) {
+    } catch (cause: unknown) {
       if (current === session.generation()) {
         session.fail(resolveErrorCode(cause), SteamGuardField.LOGIN);
       }
@@ -163,12 +160,7 @@ export const createLoginController = (deps: LoginDepsType) => {
       let value = loginCode.trim();
       const entry = deps.entry();
       const steamId = entry?.steam_id;
-      if (
-        !value &&
-        selectedGuard === GuardKind.DEVICE_CODE &&
-        entry?.has_authenticator &&
-        steamId
-      ) {
+      if (!value && selectedGuard === "DEVICE_CODE" && entry?.has_authenticator && steamId) {
         const current = await session.guard(
           () => invoke("steam_guard_code", { steamId }),
           GuardAction.LOGIN_CODE,
@@ -177,7 +169,7 @@ export const createLoginController = (deps: LoginDepsType) => {
         value = current.code;
       }
       if (!value) {
-        session.fail(ErrorApiMessage.GUARD_CODE_REQUIRED, SteamGuardField.LOGIN_CODE);
+        session.fail("GUARD_CODE_REQUIRED", SteamGuardField.LOGIN_CODE);
         return;
       }
       await finishLogin(selectedGuard, value);

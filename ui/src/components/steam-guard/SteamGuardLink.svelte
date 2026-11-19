@@ -4,23 +4,19 @@
 
   import ActionButton from "../ui/ActionButton.svelte";
   import type { SteamGuardControllerType } from "../../lib/steam-guard/steam-guard.svelte";
-  import type { AccountType } from "../../lib/types";
+  import type { AccountDto } from "../../lib/bindings/AccountDto";
   import { AlertTriangle, ArrowRightLeft, ShieldOff, Check } from "@lucide/svelte";
   import PasswordInput from "../ui/PasswordInput.svelte";
   import SteamGuardIcon from "./SteamGuardIcon.svelte";
   import FormError from "../ui/FormError.svelte";
-  import {
-    GuardAction,
-    LinkConfirmKind,
-    LinkStatus,
-    SteamGuardField,
-  } from "../../lib/steam-guard/steam-guard.constants";
-  type SteamGuardLinkPropsType = { controller: SteamGuardControllerType; entry: AccountType };
+  import { GuardAction, SteamGuardField } from "../../lib/steam-guard/steam-guard.constants";
+  import type { LinkStatus } from "../../lib/bindings/LinkStatus";
+  type SteamGuardLinkPropsType = { controller: SteamGuardControllerType; entry: AccountDto };
 
   const linkMessages: Partial<Record<LinkStatus, () => string>> = {
-    [LinkStatus.RESUME]: () => t.guard_link_resume(),
-    [LinkStatus.NEEDS_PHONE]: () => t.guard_link_phone_required(),
-    [LinkStatus.NEEDS_EMAIL]: () => t.guard_link_email_required(),
+    RESUME: () => t.guard_link_resume(),
+    NEEDS_PHONE: () => t.guard_link_phone_required(),
+    NEEDS_EMAIL: () => t.guard_link_email_required(),
   };
 
   const linkMessage = (status: LinkStatus): string =>
@@ -38,16 +34,16 @@
         account={entry}
       />
     </p>
-    {#if controller.link.status === LinkStatus.LINKED || controller.link.status === LinkStatus.RESUME}
+    {#if controller.link.status === "LINKED" || controller.link.status === "RESUME"}
       <p class="steamguard-warning">
         <AlertTriangle size={15} />
         {t.guard_link_recovery_hint()}
         <strong>{controller.link.revocation_code}</strong>
       </p>
       <p class="steamguard-note">
-        {#if controller.link.status === LinkStatus.RESUME}
+        {#if controller.link.status === "RESUME"}
           {linkMessage(controller.link.status)}
-        {:else if controller.link.confirm_kind === LinkConfirmKind.EMAIL}
+        {:else if controller.link.confirm_kind === "EMAIL"}
           {t.guard_link_email_sent()}
         {:else}
           <MessageText
@@ -84,7 +80,7 @@
           onclick={controller.finalizeLink}
         />
       </div>
-    {:else if controller.link.status === LinkStatus.AUTHENTICATOR_PRESENT}
+    {:else if controller.link.status === "AUTHENTICATOR_PRESENT"}
       <p class="steamguard-note">
         {t.guard_link_existing_description()}
       </p>

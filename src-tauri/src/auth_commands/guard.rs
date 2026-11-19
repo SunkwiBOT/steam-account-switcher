@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use steam_core::authenticator::{
     confirmation_action, confirmations, remove_authenticator, CodeInfo, ConfirmationItem,
 };
@@ -21,6 +19,18 @@ pub fn steam_guard_code(state: State<'_, AppState>, steam_id: String) -> Result<
     })
 }
 
+// ! `steam time - local time` in seconds, as last measured by the periodic refresh loop; `0` before the first measurement. The interface warns when this exceeds its own clock-drift threshold.
+#[tauri::command(async)]
+pub fn steam_guard_time_offset(state: State<'_, AppState>) -> Result<i64, String> {
+    crate::logging::read("steam_guard_time_offset", || {
+        let authenticator = state.authenticator();
+        let guard = authenticator
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        Ok(guard.time_offset_seconds())
+    })
+}
+
 #[tauri::command(async)]
 pub fn steam_guard_revocation_code(
     state: State<'_, AppState>,
@@ -39,13 +49,37 @@ pub fn steam_guard_revocation_code(
 
 #[tauri::command]
 pub async fn steam_guard_import(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     steam_id: Option<String>,
-    path: String,
     passkey: Option<String>,
-) -> Result<SnapshotDto, String> {
+) -> Result<Option<SnapshotDto>, String> {
+    use tauri::Manager;
+    use tauri_plugin_dialog::DialogExt;
+
     crate::logging::run_async("steam_guard_import", async {
+        let locale = state.lock().settings.data().language.resolved();
         let authenticator = state.authenticator();
+        let chosen = tauri::async_runtime::spawn_blocking(move || {
+            let mut dialog = app
+                .dialog()
+                .file()
+                .set_title(crate::catalog::text(locale, "backup_import_title"));
+            if let Some(window) = app.get_webview_window("main") {
+                dialog = dialog.set_parent(&window);
+            }
+            dialog.blocking_pick_file()
+        })
+        .await
+        .map_err(|_| ErrorCode::WorkerFailed.to_string())?;
+
+        let Some(chosen) = chosen else {
+            return Ok(None);
+        };
+        let path = chosen
+            .into_path()
+            .map_err(|_| ErrorCode::BackupTargetUnsafe.to_string())?;
+
         let result = tauri::async_runtime::spawn_blocking(move || {
             let passkey = passkey.map(zeroize::Zeroizing::new);
             let mut guard = authenticator
@@ -53,18 +87,16 @@ pub async fn steam_guard_import(
                 .unwrap_or_else(|error| error.into_inner());
             guard
                 .import(
-                    Path::new(&path),
+                    &path,
                     passkey.as_deref().map(|value| value.as_str()),
                     steam_id.as_deref(),
                 )
-                .map_err(|error| error.to_string())?;
-
-            Ok::<(), String>(())
+                .map_err(|error| error.to_string())
         })
         .await
         .map_err(|_| ErrorCode::WorkerFailed.to_string())?;
         result?;
-        Ok(vault_snapshot(&state))
+        Ok(Some(vault_snapshot(&state)))
     })
     .await
 }
@@ -120,8 +152,7 @@ pub async fn steam_guard_confirmation_action(
             };
             confirmation_action(&mut account, &id, &nonce, accept)
                 .map_err(|error| error.to_string())?;
-            // An accepted action must not be reported as failed just because
-            // refreshing the list or saving refreshed tokens failed afterwards.
+            // ! An accepted action must not be reported as failed just because refreshing the list or saving refreshed tokens failed afterwards.
             if let Err(error) = authenticator
                 .lock()
                 .unwrap_or_else(|error| error.into_inner())

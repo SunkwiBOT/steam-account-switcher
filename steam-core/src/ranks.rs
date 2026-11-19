@@ -1,25 +1,16 @@
 use std::sync::OnceLock;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, ts_rs::TS)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum RankKind {
     Tiered,
     Rating,
 }
 
-impl RankKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            RankKind::Tiered => "tiered",
-            RankKind::Rating => "rating",
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RankEntry {
     pub value: String,
-    /// Icon file stem inside the template folder ("diamond"), empty when the
-    /// ladder has no artwork for that tier.
+    // ! Icon file stem inside the template folder ("diamond"), empty when the ladder has no artwork for that tier.
     pub family: String,
 }
 

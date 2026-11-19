@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use steamguard::protobufs::steammessages_auth_steamclient::EAuthSessionGuardType;
+use ts_rs::TS;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct VaultStatus {
     pub path: String,
     pub encrypted: bool,
@@ -9,9 +10,11 @@ pub struct VaultStatus {
     pub indexed: bool,
     pub count: usize,
     pub error: Option<String>,
+    // ! True only before any password or account has ever been set; the interface offers a password only then.
+    pub password_suggested: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct StoredAuthenticator {
     pub steam_id: String,
     pub account_name: String,
@@ -20,17 +23,20 @@ pub struct StoredAuthenticator {
     pub has_tokens: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct CodeInfo {
+    #[ts(type = "number")]
     pub valid_until: u64,
     pub code: String,
+    #[ts(type = "number")]
     pub seconds_remaining: u64,
+    #[ts(type = "number")]
     pub period: u64,
 }
 
-/// ! Wire names match the interface's `ConfirmationKind` enum.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+// ! Wire names match the interface's `ConfirmationKind` enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ConfirmationKind {
     Trade,
     Market,
@@ -43,11 +49,10 @@ pub enum ConfirmationKind {
     Other,
 }
 
-/// ! Wire names match the interface's `LinkStatus` enum.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+// ! Wire names match the interface's `LinkStatus` enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum LinkStatus {
-    /// Secrets already saved for this account: the link resumes at the confirmation step.
     Resume,
     Linked,
     AuthenticatorPresent,
@@ -55,36 +60,32 @@ pub enum LinkStatus {
     NeedsEmail,
 }
 
-/// ! Wire names match the interface's `LinkConfirmKind` enum.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+// ! Wire names match the interface's `LinkConfirmKind` enum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum LinkConfirmKind {
     Sms,
     Email,
     Unknown,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct ConfirmationItem {
     pub id: String,
     pub nonce: String,
     pub kind: ConfirmationKind,
     pub headline: String,
     pub summary: String,
-    pub creator_id: String,
-    pub creation_time: u64,
-    pub icon: Option<String>,
-    pub multi: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct GuardMethod {
     pub kind: GuardKind,
     pub message: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum GuardKind {
     DeviceCode,
     EmailCode,
@@ -130,15 +131,14 @@ impl GuardKind {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct LoginBegin {
     pub session_id: String,
     pub methods: Vec<GuardMethod>,
     pub qr_svg: Option<String>,
-    pub challenge_url: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct LoginResult {
     pub session_id: String,
     pub steam_id: String,
@@ -146,7 +146,7 @@ pub struct LoginResult {
     pub stored: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct LinkStart {
     pub session_id: String,
     pub status: LinkStatus,

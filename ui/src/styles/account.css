@@ -2,6 +2,43 @@
   width: min(780px, 94vw);
 }
 
+.menu-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 8px 6px;
+}
+
+.menu-swatches .swatch-menu-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.menu-icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(30px, 1fr));
+  gap: 6px;
+  padding: 4px 8px 6px;
+}
+
+.menu-icons .icon-choice {
+  width: 28px;
+  height: 28px;
+}
+
+.menu-icons .icon-menu-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 3px;
+}
+
 .account-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -115,7 +152,7 @@
 
 .rank-picker:disabled {
   opacity: 0.45;
-  cursor: default;
+  cursor: not-allowed;
 }
 
 .rank-picker .rank-icon {
@@ -181,10 +218,6 @@
   flex-shrink: 0;
 }
 
-.setting-control .switch[hidden] {
-  display: none;
-}
-
 .color-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, 26px);
@@ -218,6 +251,12 @@
 
 .color-swatch.active {
   border-color: var(--surface-bright);
+}
+
+.color-swatch:focus-visible,
+.icon-choice:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .color-swatch.none {
@@ -272,12 +311,6 @@
   color: var(--accent);
 }
 
-.fact-row {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .fact.clickable {
   cursor: pointer;
 }
@@ -324,7 +357,7 @@
   border: 1px solid transparent;
   border-radius: 3px;
   color: var(--muted);
-  cursor: pointer;
+  cursor: copy;
 }
 
 .copy-button:hover:not(:disabled) {
@@ -338,9 +371,14 @@
   outline-offset: 1px;
 }
 
+/* ! Unlayered rules always win over `@layer base`: disabled/busy states must be spelled out here too. */
 .copy-button:disabled {
   opacity: 0.45;
-  cursor: default;
+  cursor: not-allowed;
+}
+
+.copy-button[aria-busy="true"] {
+  cursor: progress;
 }
 
 .account-overview > .account-block {
@@ -365,71 +403,6 @@
   flex-basis: 100%;
 }
 
-.account-identifiers {
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--base);
-}
-.account-identifiers summary {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 10px;
-  color: var(--muted);
-  cursor: pointer;
-  list-style: none;
-}
-.account-identifiers summary::-webkit-details-marker {
-  display: none;
-}
-.account-identifiers summary > svg:last-child {
-  margin-left: auto;
-}
-.account-identifiers[open] summary > svg:last-child {
-  transform: rotate(180deg);
-}
-.account-identifiers summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-.identifiers-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 10px 8px;
-  color: var(--muted);
-  font-size: 12px;
-}
-.identifiers-list {
-  margin: 0;
-}
-.identifiers-list > div {
-  display: grid;
-  grid-template-columns: 130px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  border-top: 1px solid var(--border);
-  padding: 6px 10px;
-}
-.identifiers-list dt {
-  color: var(--muted);
-}
-.identifiers-list dd {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  min-width: 0;
-}
-.identifiers-list dd > span {
-  overflow-wrap: anywhere;
-  font-variant-numeric: tabular-nums;
-}
-.identifiers-list .copy-button {
-  flex-shrink: 0;
-  margin-left: auto;
-}
 @media (max-width: 540px) {
   .account-row {
     grid-template-columns: minmax(0, 1fr);
@@ -437,100 +410,6 @@
   .account-facts {
     grid-template-columns: minmax(0, 1fr);
   }
-  .identifiers-list > div {
-    grid-template-columns: 100px minmax(0, 1fr);
-  }
-}
-
-.identifiers-picker {
-  position: relative;
-}
-.identifiers-picker summary {
-  min-height: 54px;
-}
-.identifiers-popover {
-  position: fixed;
-  z-index: 5;
-  width: min(580px, 82vw);
-  max-height: min(370px, 55vh);
-  overflow: auto;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  background: var(--base);
-  box-shadow: 0 8px 24px var(--popover-shadow);
-}
-.identifiers-popover .identifiers-toolbar {
-  padding-top: 8px;
-}
-.account-caption {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 9px;
-  color: var(--muted);
-  font-size: 13px;
-}
-.account-caption .avatar {
-  flex: 0 0 auto;
-  font-size: 12px;
-  outline: 1px solid var(--avatar-outline);
-}
-.account-caption > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.account-caption.inline {
-  display: inline-flex;
-  position: relative;
-  max-width: 100%;
-  min-height: var(--avatar-size);
-  padding-left: calc(var(--avatar-size) + 4px);
-  margin-top: 0;
-  color: inherit;
-  font-size: inherit;
-  vertical-align: baseline;
-}
-
-.account-caption.inline .avatar {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  transform: translateY(-50%);
-}
-
-.hidden-name {
-  filter: blur(5px);
-}
-
-.folder-caption .folder-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--folder-size);
-  height: var(--folder-size);
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: var(--avatar);
-  color: var(--accent);
-  line-height: var(--folder-size);
-  text-align: center;
-}
-
-.folder-caption.inline .folder-badge {
-  display: inline-block;
-  margin-right: 4px;
-  vertical-align: -0.16em;
-}
-
-.folder-caption.inline,
-.folder-caption.inline > span:last-child {
-  display: inline;
-}
-
-.folder-heading .folder-caption {
-  margin-top: 0;
 }
 
 .notes {
@@ -602,9 +481,6 @@
 }
 
 .notes-editor {
-  /* Grows with the text until the grip sets a height; past it, it scrolls.
-     The editable area fills the whole frame, padding included, so any click
-     there types. */
   display: flex;
   flex-direction: column;
   min-height: 74px;
@@ -683,4 +559,9 @@
 .notes-prose ol {
   margin: 2px 0;
   padding-left: 20px;
+  list-style: revert;
+}
+
+.notes-prose li {
+  display: list-item;
 }

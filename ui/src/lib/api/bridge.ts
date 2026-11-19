@@ -2,19 +2,29 @@ import {
   checkForUpdateIfDue,
   markDownloaded,
   recordUpdateProgress,
-  refreshOpenReport,
-  switchAccount,
-} from "../actions/actions.svelte";
-import { app, applyPlaytime, applySnapshot, run } from "../state/state.svelte";
+} from "../actions/updates.svelte";
+import { refreshOpenReport } from "../actions/reports.svelte";
+import { switchAccount } from "../actions/account-lifecycle.svelte";
+import { t } from "../i18n/i18n.svelte";
+import { app, applyPlaytime, applySnapshot, run, showToast } from "../state/state.svelte";
+import { ToastKind } from "../state/state.constants";
+import { createVaultOfferGate } from "../vault/vault-offer";
 import { invoke, listen } from "./tauri";
 
 const CHECK_INTERVAL_MS = 60 * 1000;
 
+const vaultOfferGate = createVaultOfferGate();
+
+const formatOffset = (seconds: number): string => {
+  const sign = seconds < 0 ? "-" : "+";
+  const total = Math.abs(seconds);
+  const minutes = Math.floor(total / 60);
+  const remainder = total % 60;
+  return minutes > 0 ? `${sign}${minutes}m ${remainder}s` : `${sign}${remainder}s`;
+};
+
 const syncSnapshot = async (): Promise<void> => {
-  const next = await invoke("snapshot");
-  if (next?.installations) {
-    applySnapshot(next);
-  }
+  applySnapshot(await invoke("snapshot"));
 };
 
 const setActive = async (active: boolean): Promise<void> => {
@@ -24,16 +34,12 @@ const setActive = async (active: boolean): Promise<void> => {
   app.idle = !active;
   try {
     await invoke("set_window_active", { active });
-  } catch {
-    // Best effort: the Rust side also follows the window focus events.
-  }
+  } catch (e: unknown) {}
   if (active) {
-    // The vault may have locked itself in the background. A failed refresh keeps
-    // the last snapshot; the next tick or command retries, so never reject here.
     try {
       await syncSnapshot();
       applyPlaytime(await invoke("playtime_snapshot"));
-    } catch {}
+    } catch (e: unknown) {}
     await checkForUpdateIfDue();
   }
 };
@@ -41,9 +47,17 @@ const setActive = async (active: boolean): Promise<void> => {
 export const startBridge = async (): Promise<void> => {
   try {
     app.info = await invoke("app_info");
-  } catch {}
+  } catch (e: unknown) {}
 
   await run("snapshot");
+
+  if (
+    app.snapshot &&
+    !app.snapshot.settings.vault_offer_dismissed &&
+    vaultOfferGate.check(app.snapshot.vault)
+  ) {
+    app.vaultOfferOpen = true;
+  }
 
   await listen("playtime-tick", async (event) => {
     if (app.idle) {
@@ -61,17 +75,20 @@ export const startBridge = async (): Promise<void> => {
 
   await listen("accounts-changed", syncSnapshot);
   await listen("vault-locked", syncSnapshot);
+  await listen("clock-drift-warning", (event) => {
+    showToast(ToastKind.ERROR, t.toast_clock_drift_title(), {
+      description: t.clock_drift_warning({ offset: formatOffset(event.payload) }),
+    });
+  });
 
-  // The tray asks the interface to switch, so both paths behave the same.
-  await listen("switch-requested", async (event) => {
-    const steamId = String(event.payload ?? "");
-    if (steamId) {
-      await switchAccount(steamId);
+  await listen("switch-requested", (event) => {
+    if (event.payload) {
+      switchAccount(event.payload);
     }
   });
 
-  await listen("update-progress", (event) => recordUpdateProgress(event.payload ?? {}));
-  await listen("update-downloaded", (event) => markDownloaded(String(event.payload ?? "")));
+  await listen("update-progress", (event) => recordUpdateProgress(event.payload));
+  await listen("update-downloaded", (event) => markDownloaded(event.payload));
 
   window.addEventListener("focus", () => setActive(true));
   window.addEventListener("blur", () => setActive(false));

@@ -9,6 +9,7 @@ repository.workspace = true
 
 [dependencies]
 serde = { workspace = true }
+ts-rs = { workspace = true }
 serde_json = { workspace = true }
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
 time = { version = "0.3", default-features = false, features = ["local-offset", "formatting", "parsing", "macros"] }
@@ -26,7 +27,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 base64 = "0.22"
 aes-gcm = "0.10"
 argon2 = "0.5"
-# Legacy Steam Desktop Authenticator maFiles are AES-256-CBC with a
+# ! Legacy Steam Desktop Authenticator maFiles are AES-256-CBC with a
 # PBKDF2-HMAC-SHA1 key, so importing them needs those primitives too.
 aes = "0.8"
 cbc = { version = "0.1", features = ["alloc"] }
@@ -34,10 +35,10 @@ sha1 = "0.10"
 pbkdf2 = "0.12"
 thiserror = "2"
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
-zeroize = "1"
+zeroize = { workspace = true }
 anyhow = "1"
 protobuf = "3.7"
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"

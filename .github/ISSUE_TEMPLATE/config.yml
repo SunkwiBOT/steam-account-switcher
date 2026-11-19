@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/SunkwiBOT/steam-account-switcher/security/advisories/new
+    about: Report it privately, never in a public issue.

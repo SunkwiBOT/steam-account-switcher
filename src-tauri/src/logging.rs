@@ -1,5 +1,4 @@
-//! ! Bounded local diagnostics. Command arguments, results and raw errors must
-//! never be logged: they can contain passwords, tokens or authenticator secrets.
+// ! Command arguments, results and raw errors must never be logged: they can contain passwords, tokens or authenticator secrets.
 
 use std::fs::{self, OpenOptions};
 use std::future::Future;
@@ -17,7 +16,7 @@ const PREVIEW_BYTES: u64 = 64 * 1024;
 static TARGET: Mutex<Option<PathBuf>> = Mutex::new(None);
 static NEXT_OPERATION: AtomicU64 = AtomicU64::new(1);
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, ts_rs::TS)]
 pub struct LogSnapshot {
     pub path: String,
     pub content: String,
@@ -36,7 +35,7 @@ pub fn directory() -> Result<PathBuf, String> {
 }
 
 pub fn snapshot(previous: bool) -> Result<LogSnapshot, String> {
-    // Keep rotation from changing the selected file during the read.
+    // ! Keep rotation from changing the selected file during the read.
     let slot = TARGET
         .lock()
         .map_err(|_| ErrorCode::LogUnavailable.as_str().to_string())?;
@@ -56,7 +55,7 @@ fn read_snapshot(current: &Path, previous: bool) -> std::io::Result<LogSnapshot>
             file.seek(SeekFrom::Start(length.saturating_sub(PREVIEW_BYTES)))?;
             let mut bytes = Vec::new();
             file.take(PREVIEW_BYTES).read_to_end(&mut bytes)?;
-            // Omit the partial leading entry rather than showing a broken line.
+            // ! Omit the partial leading entry rather than showing a broken line.
             let start = if truncated {
                 bytes
                     .iter()
@@ -82,11 +81,11 @@ fn read_snapshot(current: &Path, previous: bool) -> std::io::Result<LogSnapshot>
 }
 
 pub fn init(directory: PathBuf) {
-    if fs::create_dir_all(&directory).is_err() {
+    if steam_core::util::create_private_dir_all(&directory).is_err() {
         return;
     }
     let path = directory.join("steam-account-switcher.log");
-    // Restrict existing logs too; newly created files are already private.
+    // ! Restrict existing logs too; newly created files are already private.
     private_permissions(&path);
     private_permissions(&path.with_extension("log.old"));
     if let Ok(mut slot) = TARGET.lock() {
@@ -101,15 +100,60 @@ pub fn write(message: &str) {
     let Some(path) = slot.as_ref() else {
         return;
     };
-    // ! Hold the TARGET lock across append: two concurrent rotations would
-    // overwrite the backup.
-    let _ = append(path, message);
+    let message = sanitize(message);
+    // ! Hold the TARGET lock across append: two concurrent rotations would overwrite the backup.
+    let _ = append(path, &message);
+}
+
+// ! The only line of defense between a formatted error detail and the log file: a raw `reqwest`/`steamguard` error must never leak a request URL or access token.
+const MAX_LINE_BYTES: usize = 2000;
+
+fn sanitize(message: &str) -> String {
+    let mut out = String::new();
+    for (index, word) in message.split_whitespace().enumerate() {
+        if index > 0 {
+            out.push(' ');
+        }
+        out.push_str(&sanitize_word(word));
+        if out.len() > MAX_LINE_BYTES {
+            let mut end = MAX_LINE_BYTES.min(out.len());
+            while !out.is_char_boundary(end) {
+                end -= 1;
+            }
+            out.truncate(end);
+            out.push_str("...<truncated>");
+            break;
+        }
+    }
+    out
+}
+
+fn sanitize_word(word: &str) -> String {
+    if looks_like_token(word) {
+        return "<redacted>".to_string();
+    }
+    match word.find('?') {
+        Some(index) if word[..index].contains("://") => {
+            format!("{}?<redacted>", &word[..index])
+        }
+        _ => word.to_string(),
+    }
+}
+
+// ! A JWT or similar bearer token: long, made only of base64url characters, with at least the two dots a JWT's header/payload/signature need.
+fn looks_like_token(word: &str) -> bool {
+    let core = word.trim_matches(|c: char| !c.is_ascii_alphanumeric());
+    core.len() > 40
+        && core.split('.').count() >= 3
+        && core
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
 fn append(path: &Path, message: &str) -> std::io::Result<()> {
     if fs::metadata(path).is_ok_and(|meta| meta.len() >= MAX_BYTES) {
         let backup = path.with_extension("log.old");
-        // Unix rename replaces the destination atomically; Windows does not.
+        // ! Unix rename replaces the destination atomically; Windows does not.
         #[cfg(windows)]
         match fs::remove_file(&backup) {
             Ok(()) => {}
@@ -126,7 +170,7 @@ fn append(path: &Path, message: &str) -> std::io::Result<()> {
         options.mode(0o600);
     }
     let mut file = options.open(path)?;
-    // Keep each event on one line even if an internal diagnostic has newlines.
+    // ! Keep each event on one line even if an internal diagnostic has newlines.
     writeln!(
         file,
         "[{}] {}",
@@ -145,8 +189,17 @@ fn private_permissions(path: &Path) {
     let _ = path;
 }
 
-/// Logs a user action, early `?` returns included, without serializing input,
-/// output or error. Names must be static, never supplied by the UI.
+// ! Never logs the raw error itself: it may quote Steam's own response text.
+pub fn auth_error(action: &'static str, error: &steam_core::authenticator::AuthError) -> String {
+    write(&format!(
+        "action={action} status=failed code={} detail={}",
+        error.code(),
+        error.detail().unwrap_or("")
+    ));
+    error.code().to_string()
+}
+
+// ! Names must be static, never supplied by the UI.
 pub fn run<T>(name: &'static str, action: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
     let operation = Operation::start(name, false);
     operation.finish(action())
@@ -160,7 +213,7 @@ pub async fn run_async<T>(
     operation.finish(action.await)
 }
 
-/// Successful reads and rotating code generation are intentionally quiet.
+// ! Successful reads are intentionally quiet.
 pub fn read<T>(
     name: &'static str,
     action: impl FnOnce() -> Result<T, String>,
@@ -236,8 +289,7 @@ impl Drop for Operation {
     }
 }
 
-/// ! Only fixed categories: an arbitrary error string, even a harmless-looking
-/// one, may carry request URLs or tokens.
+// ! Only fixed categories: an arbitrary error string may carry request URLs or tokens.
 pub fn error_category(message: &str) -> &'static str {
     ErrorCode::from_code(message).map_or("unclassified", ErrorCode::as_str)
 }

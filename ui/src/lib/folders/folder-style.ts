@@ -55,7 +55,6 @@ export const FOLDER_ICONS: FolderIconType[] = [
 export const folderIcon = (id: string | null | undefined): typeof Folder =>
   FOLDER_ICONS.find((entry) => entry.id === id)?.icon ?? Folder;
 
-/// New folders get a random colour and a decorative icon, never the plain folder or no colour.
 export const randomFolderStyle = (): { color: string; icon: string } => {
   const colors = CARD_COLORS.filter((color) => color);
   const icons = FOLDER_ICONS.filter((entry) => entry.id !== "folder");

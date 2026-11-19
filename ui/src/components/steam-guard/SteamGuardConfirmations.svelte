@@ -3,29 +3,15 @@
 
   import ActionButton from "../ui/ActionButton.svelte";
   import FormError from "../ui/FormError.svelte";
-  import { ConfirmationKind, SteamGuardField } from "../../lib/steam-guard/steam-guard.constants";
+  import { SteamGuardField } from "../../lib/steam-guard/steam-guard.constants";
+  import { confirmationKindLabel } from "../../lib/steam-guard/steam-guard-confirmations.svelte";
   import type { SteamGuardControllerType } from "../../lib/steam-guard/steam-guard.svelte";
-  import type { AccountType } from "../../lib/types";
+  import type { AccountDto } from "../../lib/bindings/AccountDto";
   import { ChevronDown, ListChecks, LogIn, RefreshCw, Check, X } from "@lucide/svelte";
   type SteamGuardConfirmationsPropsType = {
     controller: SteamGuardControllerType;
-    entry: AccountType;
+    entry: AccountDto;
   };
-
-  const confirmationLabel = (kind: ConfirmationKind): string =>
-    (
-      ({
-        [ConfirmationKind.TRADE]: t.guard_confirmation_kind_trade,
-        [ConfirmationKind.MARKET]: t.guard_confirmation_kind_market,
-        [ConfirmationKind.PHONE]: t.guard_confirmation_kind_phone,
-        [ConfirmationKind.RECOVERY]: t.guard_confirmation_kind_recovery,
-        [ConfirmationKind.API_KEY]: t.guard_confirmation_kind_api_key,
-        [ConfirmationKind.FEATURE]: t.guard_confirmation_kind_opt_out,
-        [ConfirmationKind.FAMILY]: t.guard_confirmation_kind_family,
-        [ConfirmationKind.TEST]: t.guard_confirmation_kind_test,
-        [ConfirmationKind.OTHER]: t.guard_confirmation_kind_unknown,
-      })[kind] ?? t.guard_confirmation_kind_unknown
-    )();
   let { controller, entry }: SteamGuardConfirmationsPropsType = $props();
 </script>
 
@@ -86,7 +72,7 @@
       {#each controller.confirmations as item (item.id)}
         <li class="confirmation-item">
           <div class="confirmation-text">
-            <span class="confirmation-kind">{confirmationLabel(item.kind)}</span>
+            <span class="confirmation-kind">{confirmationKindLabel(item.kind)}</span>
             <span class="confirmation-headline">{item.headline}</span>
             {#if item.summary}<span class="confirmation-summary">{item.summary}</span>{/if}
           </div>

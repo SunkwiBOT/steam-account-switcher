@@ -79,7 +79,6 @@ impl AppState {
     }
 
     pub fn set_account_note(&self, steam_id: &str, note: &str) -> Result<(), String> {
-        // Same accounts as `display_accounts`, without rebuilding the list.
         let (configured, indexed) = {
             let guard = self
                 .authenticator
@@ -99,7 +98,6 @@ impl AppState {
                     .data()
                     .guard_account_profiles
                     .contains_key(steam_id));
-        // Removing a note stays possible for an account that is no longer listed.
         if !known && !note.trim().is_empty() {
             return Err(ErrorCode::InvalidSteamId.as_str().to_string());
         }

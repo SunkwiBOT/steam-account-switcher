@@ -1,4 +1,6 @@
-use super::model::{AccountState, GameState, LogCursor, PlaytimeState, SessionRecord};
+use super::model::{
+    AccountState, EndReason, GameState, LogCursor, PlaytimeState, SessionRecord, TrackingMode,
+};
 use crate::error::Result;
 use crate::storage::Database;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -17,7 +19,7 @@ pub fn recorded_account_count(database: &Database, installation: &str) -> Option
         .map(|count| count as usize)
 }
 
-/// Includes installations that are no longer detected.
+// ! Includes installations that are no longer detected.
 pub fn stored_installations(database: &Database) -> Vec<String> {
     database
         .read("List playtime installations", |connection| {
@@ -31,7 +33,7 @@ pub fn stored_installations(database: &Database) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// `None` erases every installation.
+// ! `None` erases every installation.
 pub fn clear_stored_history(database: &Database, installation: Option<&str>) -> Result<()> {
     database.transaction("Clear playtime history", |transaction| {
         for table in PLAYTIME_TABLES {
@@ -67,9 +69,7 @@ pub(super) enum SaveScope {
     EveryInstallation,
 }
 
-/// Finished sessions are append-only. When the stored rows still match what the
-/// tracker last saved, only the sessions recorded since then are inserted; the
-/// small tables are rewritten as before. Any mismatch falls back to a full rewrite.
+// ! Finished sessions are append-only: when the stored rows still match the tracker's last save, only sessions recorded since then are inserted; any mismatch falls back to a full rewrite.
 pub(super) fn save_state(
     database: &Database,
     installation: &str,
@@ -202,8 +202,8 @@ pub(super) fn insert_session(
             session.last_seen_at,
             session.ended_at,
             session.duration_seconds,
-            session.tracking_mode,
-            session.end_reason,
+            session.tracking_mode.as_str(),
+            session.end_reason.map(EndReason::as_str).unwrap_or(""),
             session.exit_code.map(i64::from),
             session.launch_command,
         ],
@@ -238,8 +238,16 @@ pub(super) fn read_sessions(
                 last_seen_at: row.get(13)?,
                 ended_at: row.get(14)?,
                 duration_seconds: row.get(15)?,
-                tracking_mode: row.get(16)?,
-                end_reason: row.get(17)?,
+                tracking_mode: row
+                    .get::<_, String>(16)
+                    .map(|value| TrackingMode::parse(&value).unwrap_or_default())?,
+                end_reason: row.get::<_, String>(17).map(|value| {
+                    if value.is_empty() {
+                        None
+                    } else {
+                        Some(EndReason::parse(&value).unwrap_or(EndReason::Unknown))
+                    }
+                })?,
                 exit_code: row.get::<_, Option<i64>>(18)?.map(|code| code as i32),
                 launch_command: row.get(19)?,
             },

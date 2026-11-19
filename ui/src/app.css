@@ -1,13 +1,12 @@
+@import "./theme.css";
 @import "./styles/base.css";
 @import "./styles/header.css";
-@import "./styles/cards.css";
 @import "./styles/controls.css";
 @import "./styles/tables.css";
 @import "./styles/footer.css";
 @import "./styles/settings.css";
 @import "./styles/dialogs.css";
 @import "./styles/account.css";
-@import "./styles/menus.css";
 @import "./styles/settings-panels.css";
 @import "./styles/logs.css";
 @import "./styles/feedback.css";

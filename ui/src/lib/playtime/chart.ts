@@ -1,7 +1,7 @@
 import { t, locale } from "../i18n/i18n.svelte";
 import { formatSeconds } from "../api/api";
 
-import type { DailyPointType } from "../types";
+import type { DailyPointDto } from "../bindings/DailyPointDto";
 
 const PADDING = { top: 14, right: 14, bottom: 26, left: 54 };
 const HEIGHT = 180;
@@ -10,7 +10,7 @@ export type ChartBarType = {
   x: number;
   y: number;
   width: number;
-  point: DailyPointType;
+  point: DailyPointDto;
 };
 
 export const axisLabel = (seconds: number): string => {
@@ -31,7 +31,7 @@ export const axisLabel = (seconds: number): string => {
 
 export const drawChart = (
   canvas: HTMLCanvasElement,
-  points: DailyPointType[],
+  points: DailyPointDto[],
 ): { bars: ChartBarType[]; width: number } => {
   const ratio = window.devicePixelRatio || 1;
   const width = canvas.clientWidth || 900;

@@ -7,13 +7,15 @@
   import { untrack } from "svelte";
   import { Eye, EyeOff } from "@lucide/svelte";
   import { app, showToast } from "../../lib/state/state.svelte";
+  import { ToastKind } from "../../lib/state/state.constants";
   import { invoke } from "../../lib/api/tauri";
   import AsyncIcon from "../ui/AsyncIcon.svelte";
   import CopyButton from "../ui/CopyButton.svelte";
-  import type { AccountType } from "../../lib/types";
+  import type { AccountDto } from "../../lib/bindings/AccountDto";
+  import { MASKED_LABEL } from "../../lib/accounts/identity";
 
   type AccountIdentityPropsType = {
-    entry: AccountType;
+    entry: AccountDto;
     field?: IdentityField;
   };
 
@@ -76,26 +78,30 @@
         revealedValue = name;
       }
       visible = true;
-    } catch (cause) {
-      if (current === generation) showToast(errorMessage(cause), false, entry);
+    } catch (cause: unknown) {
+      if (current === generation)
+        showToast(ToastKind.ERROR, t.toast_error_title(), {
+          description: errorMessage(cause),
+          account: entry,
+        });
     } finally {
       if (current === generation) busy = false;
     }
   };
 </script>
 
-<span class="fact-row">
-  <span class="fact-value">
+<span class="inline-flex items-center gap-2">
+  <span class="text-[var(--text-strong)] [font-variant-numeric:tabular-nums]">
     {visible
       ? field === IdentityField.STEAM_ID
         ? entry.steam_id
         : field === IdentityField.REVOCATION
           ? revealedValue
           : revealedValue || entry.account_name
-      : "******"}
+      : MASKED_LABEL}
   </span>
   <button
-    class="copy-button"
+    class="inline-flex size-[25px] items-center justify-center rounded-md border border-transparent bg-transparent p-0 text-[var(--muted)] not-disabled:hover:border-[var(--border-strong)] not-disabled:hover:bg-[var(--button)] not-disabled:hover:text-[var(--text-bright)] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--accent)] disabled:cursor-default disabled:opacity-45"
     type="button"
     title={busy
       ? t.common_loading_value({ value: label })

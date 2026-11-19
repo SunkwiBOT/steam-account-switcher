@@ -1,12 +1,12 @@
 use super::dto::*;
-use crate::{base64, state::AppState};
+use crate::{avatars, state::AppState};
 use std::sync::Arc;
 use steam_core::error_code::ErrorCode;
 use steam_core::metadata::RankStore;
-use steam_core::model::SteamAccount;
+use steam_core::model::{masked_identity, SteamAccount, MASKED_INITIAL, MASKED_LABEL};
 use steam_core::playtime::{
-    AccountPlaytime, DailyPlaytime, GamePlaytime, MachineGamePlaytime, PlaytimeTracker,
-    SessionPlaytime,
+    AccountPlaytime, DailyPlaytime, GamePlaytime, MachineGamePlaytime, PlaytimeStatus,
+    PlaytimeTracker, SessionPlaytime,
 };
 use steam_core::ranks;
 use tauri::State;
@@ -42,17 +42,17 @@ impl Catalog {
     fn avatar(&self, steam_id: &str) -> Option<String> {
         self.account(steam_id)
             .and_then(|account| account.avatar_path.as_deref())
-            .and_then(base64::data_url)
+            .and_then(avatars::data_url)
     }
 
     fn display_name(&self, steam_id: &str, fallback: &str, persona: &str) -> String {
         if let Some(account) = self.account(steam_id) {
-            return account.display_name().to_string();
+            return masked_identity(account, self.masked).0;
         }
         if !persona.is_empty() {
             persona.to_string()
         } else if self.masked {
-            "******".to_string()
+            MASKED_LABEL.to_string()
         } else if !fallback.is_empty() {
             fallback.to_string()
         } else {
@@ -62,10 +62,10 @@ impl Catalog {
 
     fn initial(&self, steam_id: &str, fallback: &str, persona: &str) -> String {
         if let Some(account) = self.account(steam_id) {
-            return account.avatar_initial();
+            return masked_identity(account, self.masked).1;
         }
         if self.masked && persona.is_empty() {
-            return "*".to_string();
+            return MASKED_INITIAL.to_string();
         }
         let label = if !persona.is_empty() {
             persona
@@ -138,9 +138,9 @@ fn game_dto(game: GamePlaytime) -> GameDto {
         sessions: game.sessions,
         seconds: game.seconds,
         status: if game.active {
-            "running".into()
+            PlaytimeStatus::Running
         } else {
-            String::new()
+            PlaytimeStatus::Finished
         },
     }
 }
@@ -153,9 +153,9 @@ fn machine_game_dto(game: MachineGamePlaytime) -> MachineGameDto {
         sessions: game.sessions,
         seconds: game.seconds,
         status: if game.active {
-            "running".into()
+            PlaytimeStatus::Running
         } else {
-            String::new()
+            PlaytimeStatus::Finished
         },
     }
 }
@@ -168,7 +168,7 @@ fn account_playtime_dto(account: AccountPlaytime, catalog: &Catalog) -> AccountP
             &account.persona_name,
         ),
         account_name: if catalog.masked {
-            "******".to_string()
+            MASKED_LABEL.to_string()
         } else {
             catalog.account_name(&account.account_id)
         },
@@ -181,9 +181,9 @@ fn account_playtime_dto(account: AccountPlaytime, catalog: &Catalog) -> AccountP
         games: account.game_count,
         seconds: account.seconds,
         status: if account.active {
-            "running".into()
+            PlaytimeStatus::Running
         } else {
-            String::new()
+            PlaytimeStatus::Finished
         },
         account_id: account.account_id,
     }
@@ -194,7 +194,7 @@ fn session_dto(session: &SessionPlaytime, catalog: &Catalog) -> SessionDto {
         session_id: session.session_id.clone(),
         account_id: session.account_id.clone(),
         account_name: if catalog.masked {
-            "******".to_string()
+            MASKED_LABEL.to_string()
         } else {
             session.account_name.clone()
         },
@@ -216,13 +216,13 @@ fn session_dto(session: &SessionPlaytime, catalog: &Catalog) -> SessionDto {
         launch_timestamp: session.launch_timestamp,
         process_create_time: session.process_create_time,
         root_pid: session.root_pid,
-        coverage: session.tracking_mode.clone(),
-        end_reason: session.end_reason.clone(),
+        coverage: session.tracking_mode,
+        end_reason: session.end_reason,
         exit_code: session.exit_code,
         status: if session.active {
-            "running".into()
+            PlaytimeStatus::Running
         } else {
-            String::new()
+            PlaytimeStatus::Finished
         },
         seconds: session.duration_seconds,
     }

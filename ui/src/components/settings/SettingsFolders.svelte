@@ -3,13 +3,15 @@
 
   import { FolderAction } from "./SettingsFolders.constants";
   import ActionButton from "../ui/ActionButton.svelte";
-  import { folders, run, showToast } from "../../lib/state/state.svelte";
+  import { run, showToast } from "../../lib/state/state.svelte";
+  import { folders } from "../../lib/state/folders.svelte";
+  import { ToastKind } from "../../lib/state/state.constants";
   import { askConfirm, openFolderEditor } from "../../lib/state/dialogs.svelte";
   import { ConfirmKind } from "../../lib/state/dialogs.constants";
   import { Folder, Lock, Plus, SquarePen, Trash2 } from "@lucide/svelte";
   import { folderIcon, randomFolderStyle } from "../../lib/folders/folder-style";
   import SteamGuardIcon from "../steam-guard/SteamGuardIcon.svelte";
-  import type { FolderType } from "../../lib/types";
+  import type { FolderDto } from "../../lib/bindings/FolderDto";
 
   let name = $state("");
   let creating = $state(false);
@@ -31,26 +33,36 @@
     creating = false;
     if (result) {
       const created = folders().find((item) => item.name === folderName);
-      showToast(rich(t.folder_create_success, { folder: folderName }), true, null, created ?? null);
+      showToast(ToastKind.SUCCESS, t.toast_folder_created_title(), {
+        description: rich(t.folder_create_success, { folder: folderName }),
+        folder: created ?? null,
+      });
       if (name.trim() === folderName) name = "";
     }
   };
 
-  const remove = async (folder: FolderType): Promise<void> => {
+  const remove = (folder: FolderDto): void => {
     const { id, name } = folder;
     if (pending[id]) return;
-    const answer = await askConfirm({
+    askConfirm({
       title: t.folder_delete_title(),
       text: rich(t.folder_delete_confirm, { folder: name }),
       confirmLabel: t.common_delete(),
+      busyLabel: t.common_removing(),
       danger: true,
       kind: ConfirmKind.REMOVE,
+      action: async () => {
+        pending[id] = FolderAction.DELETE;
+        const result = await run("delete_folder", { id });
+        delete pending[id];
+        if (result)
+          showToast(ToastKind.SUCCESS, t.toast_folder_deleted_title(), {
+            description: rich(t.folder_delete_success, { folder: name }),
+            folder,
+          });
+        return result !== null;
+      },
     });
-    if (!answer) return;
-    pending[id] = FolderAction.DELETE;
-    const result = await run("delete_folder", { id });
-    delete pending[id];
-    if (result) showToast(rich(t.folder_delete_success, { folder: name }), true, null, folder);
   };
 </script>
 

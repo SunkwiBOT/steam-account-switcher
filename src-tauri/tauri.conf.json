@@ -15,7 +15,8 @@
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI2NjQxMjk4OTY2NTg0Q0QKUldUTmhHV1dtQkprdG43ZlNyZ2svbEFrZDVFbVdybDFjbWcrajdHUm45OE1LSmsrZ0o3MGVsamYK",
       "endpoints": [
         "https://github.com/SunkwiBOT/steam-account-switcher/releases/latest/download/latest.json"
-      ]
+      ],
+      "requireSignedVersion": true
     }
   },
   "app": {
@@ -33,7 +34,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'"
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'"
     }
   },
   "bundle": {

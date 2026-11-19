@@ -1,11 +1,10 @@
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 macro_rules! languages {
     ($($variant:ident = $tag:literal),* $(,)?) => {
-        /// ! Serde names are the BCP 47 tags shared with the interface's `Language`
-        /// ! enum, the Paraglide locales and the rust-i18n files: the lists must
-        /// ! stay identical.
-        #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+        // ! Serde names are the BCP 47 tags shared with the interface's `Language` enum, the Paraglide locales and the native catalogue's `messages/*.json` keys: the lists must stay identical.
+        #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, TS)]
         pub enum Language {
             #[default]
             #[serde(rename = "auto")]
@@ -65,10 +64,7 @@ impl Language {
     }
 }
 
-/// Maps a system locale such as `pt_BR.UTF-8`, `zh-Hant-TW` or `es-MX` to a
-/// supported tag, English when nothing matches. Regional variants follow
-/// Steam's own split: Spain vs Latin America, Portugal vs Brazil, simplified
-/// vs traditional Chinese.
+// ! Regional variants follow Steam's own split: Spain vs Latin America, Portugal vs Brazil, simplified vs traditional Chinese.
 pub fn resolve_system_locale(locale: Option<&str>) -> &'static str {
     let Some(locale) = locale else {
         return "en";

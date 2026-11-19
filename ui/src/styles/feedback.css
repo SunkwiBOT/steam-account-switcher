@@ -1,3 +1,27 @@
+/* ! svelte-sonner disables its own toast transitions under prefers-reduced-motion with !important at the same specificity as this file's own rule; these selectors win on specificity instead of source order. */
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toaster] [data-sonner-toast]:not([data-swiping="true"]) {
+    transition:
+      transform 400ms,
+      opacity 400ms,
+      height 400ms,
+      box-shadow 200ms !important;
+    animation: none !important;
+  }
+  [data-sonner-toaster] [data-sonner-toast]:not([data-swiping="true"]) > * {
+    transition: opacity 400ms !important;
+    animation: none !important;
+  }
+  [data-sonner-toaster] .sonner-loading-bar {
+    transition: none !important;
+    animation: sonner-spin 1.2s linear infinite !important;
+  }
+}
+
+[data-sonner-toaster] {
+  pointer-events: auto;
+}
+
 .busy {
   position: fixed;
   inset: 0;
@@ -11,8 +35,7 @@
   color: var(--text-strong);
 }
 
-.busy[hidden],
-.toast[hidden] {
+.busy[hidden] {
   display: none;
 }
 
@@ -25,47 +48,8 @@
   animation: spin 0.2125s linear infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .spinner {
-    animation-duration: 0.75s;
-  }
-}
-
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
-}
-
-.toast {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  position: fixed;
-  bottom: 18px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 100;
-  padding: 9px 14px;
-  border-radius: 4px;
-  border: 1px solid var(--error-border);
-  background: var(--error-bg);
-  color: var(--error-text);
-  max-width: 70vw;
-}
-
-.toast .avatar {
-  flex-shrink: 0;
-  font-size: 12px;
-}
-
-.toast-message {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.toast.ok {
-  border-color: var(--primary);
-  background: var(--success-bg);
-  color: var(--success-text);
 }

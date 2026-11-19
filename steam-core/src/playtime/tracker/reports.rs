@@ -1,10 +1,9 @@
-//! Read-only views over the recorded playtime: per-account and per-game totals,
-//! session history, daily buckets and statistics.
+// ! Read-only views over the recorded playtime: per-account and per-game totals, session history, daily buckets and statistics.
 
 use super::PlaytimeTracker;
 use crate::playtime::model::{
-    AccountPlaytime, ActiveGame, DailyPlaytime, GamePlaytime, MachineGamePlaytime,
-    PlaytimeStatistics, SessionPlaytime, SessionRecord,
+    AccountPlaytime, ActiveGame, DailyPlaytime, EndReason, GamePlaytime, MachineGamePlaytime,
+    PlaytimeState, PlaytimeStatistics, SessionPlaytime, SessionRecord,
 };
 use crate::util::{local_date, local_midnight};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -32,6 +31,11 @@ impl PlaytimeTracker {
                 .filter(|session| session.account_id == account_id)
                 .map(|session| (now - session.started_at).max(0.0))
                 .sum::<f64>()
+    }
+
+    // ! Derived from the per-game counters `finish_session` already maintains, so a live snapshot never scans the whole session history just to count sessions.
+    pub fn session_count(&self, account_id: Option<&str>) -> usize {
+        count_sessions(&self.state, account_id)
     }
 
     pub fn global_seconds(&self, include_active: bool) -> f64 {
@@ -257,7 +261,7 @@ impl PlaytimeTracker {
         sessions
     }
 
-    /// Daily totals for the last `days` days, split at local midnight.
+    // ! Daily totals for the last `days` days, split at local midnight.
     pub fn daily_playtime(&self, days: i64, account_id: Option<&str>) -> Vec<DailyPlaytime> {
         let days = days.clamp(1, 366);
         let now = (self.clock)();
@@ -384,17 +388,11 @@ impl PlaytimeTracker {
             ended_at,
             duration_seconds,
             active,
-            tracking_mode: if record.tracking_mode.is_empty() {
-                "partial".to_string()
-            } else {
-                record.tracking_mode.clone()
-            },
+            tracking_mode: record.tracking_mode,
             end_reason: if active {
-                String::new()
-            } else if record.end_reason.is_empty() {
-                "unknown".to_string()
+                None
             } else {
-                record.end_reason.clone()
+                Some(record.end_reason.unwrap_or(EndReason::Unknown))
             },
             exit_code: record.exit_code,
             root_pid: record.root_pid,
@@ -405,4 +403,36 @@ impl PlaytimeTracker {
 
 pub(super) fn midnight_timestamp(day: Date) -> f64 {
     local_midnight(day) as f64
+}
+
+// ! Derived from the per-game counters `finish_session` already maintains, so a live snapshot never scans the whole session history just to count sessions.
+fn count_sessions(state: &PlaytimeState, account_id: Option<&str>) -> usize {
+    let completed: usize = match account_id {
+        Some(account_id) => state
+            .accounts
+            .get(account_id)
+            .map(|account| {
+                account
+                    .games
+                    .values()
+                    .map(|game| game.sessions as usize)
+                    .sum()
+            })
+            .unwrap_or(0),
+        None => state
+            .accounts
+            .values()
+            .flat_map(|account| account.games.values())
+            .map(|game| game.sessions as usize)
+            .sum(),
+    };
+    let active = match account_id {
+        Some(account_id) => state
+            .active_sessions
+            .values()
+            .filter(|session| session.account_id == account_id)
+            .count(),
+        None => state.active_sessions.len(),
+    };
+    completed + active
 }

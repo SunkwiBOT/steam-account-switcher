@@ -1,78 +1,72 @@
-//! Tags mirror `Language` in src-tauri/src/locale.rs, the Paraglide locales
-//! and the rust-i18n files: the lists must stay identical.
-export enum Language {
-  AUTO = "auto",
-  EN = "en",
-  FR = "fr",
-  DE = "de",
-  ESES = "es-ES",
-  ES419 = "es-419",
-  PTPT = "pt-PT",
-  PTBR = "pt-BR",
-  IT = "it",
-  NL = "nl",
-  PL = "pl",
-  RU = "ru",
-  UK = "uk",
-  CS = "cs",
-  HU = "hu",
-  RO = "ro",
-  BG = "bg",
-  EL = "el",
-  TR = "tr",
-  SV = "sv",
-  DA = "da",
-  NB = "nb",
-  FI = "fi",
-  ZHCN = "zh-CN",
-  ZHTW = "zh-TW",
-  JA = "ja",
-  KO = "ko",
-  TH = "th",
-  VI = "vi",
-  ID = "id",
-}
+import type { Language } from "../bindings/Language";
 
-export type ResolvedLanguageType = Exclude<Language, Language.AUTO>;
+export type ResolvedLanguageType = Exclude<Language, "auto">;
 
-export const RESOLVED_LANGUAGES: readonly ResolvedLanguageType[] = Object.values(Language).filter(
-  (value): value is ResolvedLanguageType => value !== Language.AUTO,
-);
+export const RESOLVED_LANGUAGES: readonly ResolvedLanguageType[] = [
+  "en",
+  "fr",
+  "de",
+  "es-ES",
+  "es-419",
+  "pt-PT",
+  "pt-BR",
+  "it",
+  "nl",
+  "pl",
+  "ru",
+  "uk",
+  "cs",
+  "hu",
+  "ro",
+  "bg",
+  "el",
+  "tr",
+  "sv",
+  "da",
+  "nb",
+  "fi",
+  "zh-CN",
+  "zh-TW",
+  "ja",
+  "ko",
+  "th",
+  "vi",
+  "id",
+];
 
-/** Each language named in itself, so the picker reads the same in every language. */
 export const LANGUAGE_LABELS: Record<ResolvedLanguageType, string> = {
-  [Language.EN]: "English",
-  [Language.FR]: "Français",
-  [Language.DE]: "Deutsch",
-  [Language.ESES]: "Español (España)",
-  [Language.ES419]: "Español (Latinoamérica)",
-  [Language.PTPT]: "Português (Portugal)",
-  [Language.PTBR]: "Português (Brasil)",
-  [Language.IT]: "Italiano",
-  [Language.NL]: "Nederlands",
-  [Language.PL]: "Polski",
-  [Language.RU]: "Русский",
-  [Language.UK]: "Українська",
-  [Language.CS]: "Čeština",
-  [Language.HU]: "Magyar",
-  [Language.RO]: "Română",
-  [Language.BG]: "Български",
-  [Language.EL]: "Ελληνικά",
-  [Language.TR]: "Türkçe",
-  [Language.SV]: "Svenska",
-  [Language.DA]: "Dansk",
-  [Language.NB]: "Norsk",
-  [Language.FI]: "Suomi",
-  [Language.ZHCN]: "简体中文",
-  [Language.ZHTW]: "繁體中文",
-  [Language.JA]: "日本語",
-  [Language.KO]: "한국어",
-  [Language.TH]: "ไทย",
-  [Language.VI]: "Tiếng Việt",
-  [Language.ID]: "Bahasa Indonesia",
+  en: "English",
+  fr: "Français",
+  de: "Deutsch",
+  "es-ES": "Español (España)",
+  "es-419": "Español (Latinoamérica)",
+  "pt-PT": "Português (Portugal)",
+  "pt-BR": "Português (Brasil)",
+  it: "Italiano",
+  nl: "Nederlands",
+  pl: "Polski",
+  ru: "Русский",
+  uk: "Українська",
+  cs: "Čeština",
+  hu: "Magyar",
+  ro: "Română",
+  bg: "Български",
+  el: "Ελληνικά",
+  tr: "Türkçe",
+  sv: "Svenska",
+  da: "Dansk",
+  nb: "Norsk",
+  fi: "Suomi",
+  "zh-CN": "简体中文",
+  "zh-TW": "繁體中文",
+  ja: "日本語",
+  ko: "한국어",
+  th: "ไทย",
+  vi: "Tiếng Việt",
+  id: "Bahasa Indonesia",
 };
 
-/** Same rules as `resolve_system_locale` on the Rust side; English when nothing matches. */
+// ! Same rules as `resolve_system_locale` on the Rust side; English when nothing matches.
 export const resolveSystemLocale = (locales: readonly string[]): ResolvedLanguageType => {
   for (const raw of locales) {
     const parts = raw
@@ -91,5 +85,5 @@ export const resolveSystemLocale = (locales: readonly string[]): ResolvedLanguag
     const match = RESOLVED_LANGUAGES.find((candidate) => candidate.toLowerCase() === tag);
     if (match) return match;
   }
-  return Language.EN;
+  return "en";
 };

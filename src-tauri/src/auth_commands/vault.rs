@@ -1,4 +1,4 @@
-use steam_core::authenticator::{AuthError, Authenticator, StoredAuthenticator, VaultStatus};
+use steam_core::authenticator::{AuthError, Authenticator};
 use steam_core::error_code::ErrorCode;
 use tauri::State;
 
@@ -13,24 +13,6 @@ pub(super) fn vault_snapshot(state: &AppState) -> SnapshotDto {
         vault.status.encrypted, vault.status.locked, vault.status.indexed, vault.status.count
     ));
     snapshot
-}
-
-#[tauri::command(async)]
-pub fn authenticator_status(state: State<'_, AppState>) -> VaultStatus {
-    let authenticator = state.authenticator();
-    let guard = authenticator
-        .lock()
-        .unwrap_or_else(|error| error.into_inner());
-    guard.status()
-}
-
-#[tauri::command(async)]
-pub fn authenticator_accounts(state: State<'_, AppState>) -> Vec<StoredAuthenticator> {
-    let authenticator = state.authenticator();
-    let guard = authenticator
-        .lock()
-        .unwrap_or_else(|error| error.into_inner());
-    guard.accounts()
 }
 
 async fn update_vault(

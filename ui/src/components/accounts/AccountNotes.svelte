@@ -1,6 +1,4 @@
 <script module lang="ts">
-  /// Notes whose save failed, kept for the app session: closing the dialog
-  /// cannot lose them, and they come back (and are retried) on the next opening.
   const drafts = new Map<string, string>();
 </script>
 
@@ -62,33 +60,21 @@
 
   let host = $state<HTMLDivElement | null>(null);
   let editor = $state.raw<Editor | null>(null);
-  /// Bumped on every editor transaction so the toolbar state is read again.
   let revision = $state(0);
   let tooLong = $state(false);
-  /// The toolbar only reflects the caret while the user is in the editor.
   let focused = $state(false);
-  /// Height chosen with the grip, `null` while the editor follows its text.
   let height = $state<number | null>(null);
   let timer: ReturnType<typeof setTimeout> | null = null;
-  //! Saves run one after another: two in flight could reach the database in
-  //! the wrong order and leave the older text stored.
+  // ! Saves run one after another: two in flight could reach the database in the wrong order.
   let queue: Promise<void> = Promise.resolve();
-  /// Saves queued or in flight.
   let pending = 0;
-  /// The markup of the last save queued, so the same text is not sent twice.
   let queued: string | null = null;
-  /// The markup of the last failed save, only sent again once it changes.
   let failed: string | null = null;
-  /// The shown account, its stored note, and that note as the editor writes it
-  /// back (the editor may order the same formatting differently).
   let loaded = { steamId: "", note: "", html: "" };
 
   const read = (): string =>
     editor && editor.getText().trim() ? sanitizeNote(editor.getHTML()) : "";
 
-  //! A snapshot may only replace the editor content when another account is
-  //! shown, or when the user is neither typing nor waiting on a save; it is
-  //! applied again once the last save has answered.
   const sync = (): void => {
     if (!editor || editor.isDestroyed) return;
     const html = sanitizeNote(note);
@@ -137,12 +123,9 @@
     }
   };
 
-  //! `loaded` only moves once the backend has stored the note; a failed save
-  //! stays in the editor and in `drafts` until a later save succeeds.
   const save = (): void => {
     if (timer) clearTimeout(timer);
     timer = null;
-    // The editor still holds the loaded account's text when another one is opened.
     const target = loaded.steamId;
     if (!target || !editor || editor.isDestroyed) return;
     const html = read();
@@ -179,7 +162,6 @@
     );
   });
 
-  /// Hex colour of the text under the caret, `null` for the default colour.
   const activeColor = $derived.by(() => {
     void revision;
     if (!focused) return null;
@@ -190,8 +172,7 @@
 
   const MIN_HEIGHT = 74;
 
-  //! A grip of our own rather than CSS `resize`, which WebKitGTK does not
-  //! offer on this editor: pointer capture behaves the same in every webview.
+  // ! A grip of our own rather than CSS `resize`, which WebKitGTK does not offer on this editor.
   const startResize = (event: PointerEvent): void => {
     if (!host || event.button !== 0) return;
     event.preventDefault();
@@ -221,7 +202,6 @@
     editor = new Editor({
       element: host,
       extensions: [
-        // Only what the sanitiser stores: no headings, quotes, code or links.
         StarterKit.configure({
           paragraph: false,
           heading: false,
@@ -231,7 +211,7 @@
           horizontalRule: false,
           link: false,
         }),
-        // Stored notes write their paragraphs as `div`.
+        // ! Stored notes write their paragraphs as `div`.
         Paragraph.extend({
           parseHTML: () => [{ tag: "p" }, { tag: "div" }],
         }),
@@ -248,9 +228,7 @@
         },
       },
       onUpdate: schedule,
-      //! ProseMirror reports focus changes from inside DOM updates, which may
-      //! be Svelte's own (closing the dialog blurs the editor): state is only
-      //! written once that update is over.
+      // ! ProseMirror reports focus changes from inside DOM updates, which may be Svelte's own, so state is only written once that update is over.
       onFocus: () => {
         queueMicrotask(() => {
           focused = true;
@@ -323,7 +301,6 @@
       style:height={height === null ? null : `${height}px`}
       bind:this={host}
     ></div>
-    <!-- Double-clicking the grip lets the editor follow its text again. -->
     <span
       class="notes-grip"
       aria-hidden="true"

@@ -29,19 +29,22 @@ pub async fn steam_guard_login_password(
                 .unwrap_or_else(|error| error.into_inner());
             match outcome {
                 Ok(methods) => {
-                    guard
-                        .store_login(&session_id, login)
-                        .map_err(|error| error.to_string())?;
+                    if let Err(error) = guard.store_login(&session_id, login) {
+                        guard.cancel_session(&session_id);
+                        return Err(error.to_string());
+                    }
                     Ok(LoginBegin {
                         session_id,
                         methods,
                         qr_svg: None,
-                        challenge_url: None,
                     })
                 }
                 Err(error) => {
                     guard.cancel_session(&session_id);
-                    Err(error.to_string())
+                    Err(crate::logging::auth_error(
+                        "steam_guard_login_password",
+                        &error,
+                    ))
                 }
             }
         })
@@ -67,20 +70,20 @@ pub async fn steam_guard_login_qr(state: State<'_, AppState>) -> Result<LoginBeg
                 .lock()
                 .unwrap_or_else(|error| error.into_inner());
             match outcome {
-                Ok((svg, url, methods)) => {
-                    guard
-                        .store_login(&session_id, login)
-                        .map_err(|error| error.to_string())?;
+                Ok((svg, _url, methods)) => {
+                    if let Err(error) = guard.store_login(&session_id, login) {
+                        guard.cancel_session(&session_id);
+                        return Err(error.to_string());
+                    }
                     Ok(LoginBegin {
                         session_id,
                         methods,
                         qr_svg: Some(svg),
-                        challenge_url: Some(url),
                     })
                 }
                 Err(error) => {
                     guard.cancel_session(&session_id);
-                    Err(error.to_string())
+                    Err(crate::logging::auth_error("steam_guard_login_qr", &error))
                 }
             }
         })
@@ -130,11 +133,14 @@ pub async fn steam_guard_login_finish(
                 let mut guard = authenticator
                     .lock()
                     .unwrap_or_else(|error| error.into_inner());
-                if steam_core::authenticator::token_steam_id(&tokens)
-                    .map_err(|error| error.to_string())?
-                    .to_string()
-                    != steam_id
-                {
+                let actual = match steam_core::authenticator::token_steam_id(&tokens) {
+                    Ok(actual) => actual.to_string(),
+                    Err(error) => {
+                        guard.cancel_session(&session);
+                        return Err(error.to_string());
+                    }
+                };
+                if actual != steam_id {
                     guard.cancel_session(&session);
                     return Err(ErrorCode::AccountMismatch.as_str().to_string());
                 }
@@ -147,7 +153,10 @@ pub async fn steam_guard_login_finish(
                     .lock()
                     .unwrap_or_else(|error| error.into_inner());
                 guard.put_login(&session, login);
-                Err(error.to_string())
+                Err(crate::logging::auth_error(
+                    "steam_guard_login_finish",
+                    &error,
+                ))
             }
         }
     })

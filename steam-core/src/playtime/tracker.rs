@@ -1,7 +1,9 @@
 use super::log::{parse_gameprocess_line, EventKind};
-use super::model::{LogCursor, PlaytimeState};
+use super::model::{EndReason, LogCursor, PlaytimeState};
 use super::store::{load_state, save_state, SaveScope};
-use super::{installation_key, AccountProvider, ClockRef, ProbeRef, CHECKPOINT_INTERVAL};
+use super::{
+    installation_key, AccountProvider, ClockRef, ProbeRef, CHECKPOINT_INTERVAL, READ_CHUNK_SIZE,
+};
 use crate::error::{Result, SteamError};
 use crate::games::SteamGameCatalog;
 use crate::model::SteamInstallation;
@@ -29,26 +31,17 @@ pub struct PlaytimeTracker {
     clock: ClockRef,
     probe: ProbeRef,
     account_provider: AccountProvider,
-    /// Set when the in-memory state has not been written yet; the next poll retries.
+    // ! Set when the in-memory state has not been written yet; the next poll retries.
     dirty: bool,
-    /// ! Set when the stored history could not be read: saving is refused so an
-    /// ! unreadable database is never overwritten with an empty history.
+    // ! Set when the stored history could not be read: saving is refused so an unreadable database is never overwritten with an empty history.
     blocked: bool,
-    /// Finished sessions already in the database, so a save writes only new ones.
+    // ! Finished sessions already in the database, so a save writes only new ones.
     stored_sessions: usize,
+    // ! Reused every poll instead of allocating and zeroing a fresh 4 MiB buffer each time: only its first `read` bytes (sliced at the point of use) are ever meaningful.
+    read_buffer: Vec<u8>,
 }
 
 impl PlaytimeTracker {
-    pub fn new(
-        installation: &SteamInstallation,
-        database: Database,
-        clock: ClockRef,
-        probe: ProbeRef,
-        account_provider: AccountProvider,
-    ) -> Self {
-        Self::with_tracking(installation, database, clock, probe, account_provider, true)
-    }
-
     pub fn with_tracking(
         installation: &SteamInstallation,
         database: Database,
@@ -90,6 +83,7 @@ impl PlaytimeTracker {
             dirty: false,
             blocked,
             stored_sessions,
+            read_buffer: vec![0_u8; READ_CHUNK_SIZE as usize],
         };
 
         if !enabled {
@@ -105,13 +99,13 @@ impl PlaytimeTracker {
                 })
                 .collect();
             for (id, end) in sessions {
-                tracker.finish_session(&id, end, "tracking_disabled", None);
+                tracker.finish_session(&id, end, EndReason::TrackingDisabled, None);
             }
             tracker.loaded_active_app_ids.clear();
         } else if !loaded || !tracker.has_valid_source() {
             tracker.initialize_at_log_end();
             tracker.discover_games_already_running();
-            // A failed save leaves `dirty` set, so the first poll retries and reports it.
+            // ! A failed save leaves `dirty` set, so the first poll retries and reports it.
             let _ = tracker.persist();
         } else if tracker.state.active_sessions.is_empty() {
             tracker.discover_games_already_running();
@@ -138,7 +132,7 @@ impl PlaytimeTracker {
             let now = (tracker.clock)();
             let ids: Vec<_> = tracker.state.active_sessions.keys().cloned().collect();
             for id in ids {
-                tracker.finish_session(&id, now, "tracking_disabled", None);
+                tracker.finish_session(&id, now, EndReason::TrackingDisabled, None);
             }
             tracker.enabled = enabled;
             tracker.instance_started_at = now;
@@ -156,8 +150,7 @@ impl PlaytimeTracker {
         self.clear_with(SaveScope::ThisInstallation)
     }
 
-    /// Erases the history of every installation in the same transaction that stores
-    /// this tracker's reset state, so a failure leaves all of it in place.
+    // ! Erases the history of every installation in the same transaction that stores this tracker's reset state, so a failure leaves all of it in place.
     pub fn clear_all_history(&mut self) -> Result<()> {
         self.clear_with(SaveScope::EveryInstallation)
     }
@@ -223,8 +216,7 @@ impl PlaytimeTracker {
         self.state.history_started_at
     }
 
-    /// Returns whether the state changed. A failed write is an error, never a
-    /// silent `false`, and is retried by the next poll.
+    // ! Returns whether the state changed. A failed write is an error, never a silent `false`, and is retried by the next poll.
     pub fn poll(&mut self) -> Result<bool> {
         if !self.enabled {
             return Ok(false);
@@ -244,7 +236,7 @@ impl PlaytimeTracker {
                     changed |= self.finish_session(
                         &event.app_id,
                         event.timestamp,
-                        "steam_running_list",
+                        EndReason::SteamRunningList,
                         None,
                     )
                 }

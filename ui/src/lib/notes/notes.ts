@@ -1,11 +1,6 @@
-/**
- * Account notes are stored as a small subset of HTML written by the editor.
- * ! Every note goes through `sanitizeNote` before it reaches `innerHTML` or the
- * ! backend: only the tags below survive, and colours must be plain hex values.
- * ! The backend refuses any other markup, so the two must stay in step.
- */
+// ! Only the handled tags survive `sanitizeNote`; the backend refuses any other markup, so the two must stay in step.
 
-/// Mirrors `MAX_NOTE_BYTES` in the backend's settings model.
+// ! Mirrors `MAX_NOTE_BYTES` in the backend's settings model.
 export const MAX_NOTE_BYTES = 64 * 1024;
 
 export const noteBytes = (html: string): number => new TextEncoder().encode(html).length;
@@ -39,7 +34,6 @@ const SIMPLE_TAGS: Record<string, string> = {
   LI: "li",
 };
 
-/// Their content is code or styling, never text the user typed.
 const DROPPED_TAGS = new Set(["SCRIPT", "STYLE", "TEMPLATE", "NOSCRIPT"]);
 
 const escapeText = (value: string): string =>
@@ -62,14 +56,14 @@ export const toHex = (value: string): string | null => {
     .join("")}`;
 };
 
-/// The editor writes `<font color>` or a `color` style depending on the engine.
+// ! The editor writes `<font color>` or a `color` style depending on the engine.
 const colorOf = (element: Element): string | null => {
   const attribute = element.getAttribute("color");
   if (attribute) return toHex(attribute);
   return element instanceof HTMLElement && element.style.color ? toHex(element.style.color) : null;
 };
 
-/// Engines that ignore `styleWithCSS` write the formatting as inline styles.
+// ! Engines that ignore `styleWithCSS` write the formatting as inline styles.
 const styleTags = (element: Element): string[] => {
   if (!(element instanceof HTMLElement)) return [];
   const { fontWeight, fontStyle, textDecorationLine, textDecoration } = element.style;
@@ -82,15 +76,13 @@ const styleTags = (element: Element): string[] => {
   return tags;
 };
 
-//! A colour is only ever written around text, never around a block, so the
-//! output nests validly and parses back to the very same markup.
 const serialize = (node: Node, color: string | null): string => {
   if (node.nodeType === Node.TEXT_NODE) {
     const text = escapeText(node.textContent ?? "");
     return color && text ? `<span style="color:${color}">${text}</span>` : text;
   }
   if (!(node instanceof Element)) return "";
-  // `tagName` keeps the source case for SVG and MathML elements.
+  // ! `tagName` keeps the source case for SVG and MathML elements.
   const name = node.localName.toUpperCase();
   if (name === "BR") return "<br>";
   if (DROPPED_TAGS.has(name)) return "";
@@ -103,7 +95,7 @@ const serialize = (node: Node, color: string | null): string => {
 
 export const sanitizeNote = (html: string | null | undefined): string => {
   if (!html) return "";
-  // DOMParser never runs scripts or loads resources from what it parses.
+  // ! DOMParser never runs scripts or loads resources from what it parses.
   const body = new DOMParser().parseFromString(html, "text/html").body;
   return [...body.childNodes].map((child) => serialize(child, null)).join("");
 };

@@ -1,10 +1,10 @@
-use super::{build_snapshot, dto::SnapshotDto};
-use crate::state::AppState;
-use serde::Serialize;
+use super::{
+    build_snapshot,
+    dto::{AppInfoDto, SnapshotDto},
+};
+use crate::state::{save_or_restore, AppState};
 use steam_core::error_code::ErrorCode;
 use tauri::State;
-
-const REPOSITORY_URL: &str = "https://github.com/SunkwiBOT/steam-account-switcher";
 
 #[tauri::command(async)]
 pub fn set_close_to_tray(
@@ -14,12 +14,9 @@ pub fn set_close_to_tray(
     crate::logging::run("set_close_to_tray", || {
         {
             let mut inner = state.lock();
-            let previous = inner.settings.data().close_to_tray;
+            let previous = inner.settings.data().clone();
             inner.settings.data_mut().close_to_tray = close_to_tray;
-            if let Err(error) = inner.settings.save() {
-                inner.settings.data_mut().close_to_tray = previous;
-                return Err(error);
-            }
+            save_or_restore(&mut inner.settings, previous)?;
         }
         Ok(build_snapshot(&state))
     })
@@ -33,12 +30,9 @@ pub fn set_update_interval(
     crate::logging::run("set_update_interval", || {
         {
             let mut inner = state.lock();
-            let previous = inner.settings.data().update_interval;
+            let previous = inner.settings.data().clone();
             inner.settings.data_mut().update_interval = interval;
-            if let Err(error) = inner.settings.save() {
-                inner.settings.data_mut().update_interval = previous;
-                return Err(error);
-            }
+            save_or_restore(&mut inner.settings, previous)?;
         }
         Ok(build_snapshot(&state))
     })
@@ -52,12 +46,9 @@ pub fn set_vault_lock_interval(
     crate::logging::run("set_vault_lock_interval", || {
         {
             let mut inner = state.lock();
-            let previous = inner.settings.data().vault_lock_interval;
+            let previous = inner.settings.data().clone();
             inner.settings.data_mut().vault_lock_interval = interval;
-            if let Err(error) = inner.settings.save() {
-                inner.settings.data_mut().vault_lock_interval = previous;
-                return Err(error);
-            }
+            save_or_restore(&mut inner.settings, previous)?;
         }
         Ok(build_snapshot(&state))
     })
@@ -71,12 +62,9 @@ pub fn set_search_scope(
     crate::logging::run("set_search_scope", || {
         {
             let mut inner = state.lock();
-            let previous = inner.settings.data().search_scope;
+            let previous = inner.settings.data().clone();
             inner.settings.data_mut().search_scope = scope;
-            if let Err(error) = inner.settings.save() {
-                inner.settings.data_mut().search_scope = previous;
-                return Err(error);
-            }
+            save_or_restore(&mut inner.settings, previous)?;
         }
         Ok(build_snapshot(&state))
     })
@@ -91,12 +79,9 @@ pub fn set_language(
     crate::logging::run("set_language", || {
         {
             let mut inner = state.lock();
-            let previous = inner.settings.data().language;
+            let previous = inner.settings.data().clone();
             inner.settings.data_mut().language = language;
-            if let Err(error) = inner.settings.save() {
-                inner.settings.data_mut().language = previous;
-                return Err(error);
-            }
+            save_or_restore(&mut inner.settings, previous)?;
         }
         crate::tray::refresh_menu(&app);
         Ok(build_snapshot(&state))
@@ -136,6 +121,19 @@ pub fn set_steam_ids_visible(
 ) -> Result<SnapshotDto, String> {
     crate::logging::run("set_steam_ids_visible", || {
         state.set_privacy(None, Some(visible))?;
+        Ok(build_snapshot(&state))
+    })
+}
+
+#[tauri::command(async)]
+pub fn set_vault_offer_dismissed(state: State<'_, AppState>) -> Result<SnapshotDto, String> {
+    crate::logging::run("set_vault_offer_dismissed", || {
+        {
+            let mut inner = state.lock();
+            let previous = inner.settings.data().clone();
+            inner.settings.data_mut().vault_offer_dismissed = true;
+            save_or_restore(&mut inner.settings, previous)?;
+        }
         Ok(build_snapshot(&state))
     })
 }
@@ -290,18 +288,13 @@ pub fn set_window_active(state: State<'_, AppState>, active: bool) {
     state.set_window_active(active);
 }
 
-#[derive(Serialize)]
-pub struct AppInfoDto {
-    pub name: String,
-    pub version: String,
-    pub repository: String,
-}
 #[tauri::command(async)]
 pub fn app_info(app: tauri::AppHandle) -> AppInfoDto {
     AppInfoDto {
         name: app.package_info().name.clone(),
         version: app.package_info().version.to_string(),
-        repository: REPOSITORY_URL.to_string(),
+        repository: env!("CARGO_PKG_REPOSITORY").to_string(),
+        backup_extension: crate::auth_commands::backup::BACKUP_EXTENSION.to_string(),
     }
 }
 

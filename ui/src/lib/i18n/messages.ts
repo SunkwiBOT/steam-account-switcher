@@ -24,13 +24,3 @@ export const messageParts = (content: MessageType): MessagePartType[] => {
 export const containsAccountName = (content: MessageType, name: string): boolean => {
   return Array.isArray(content) && content.some((part) => part.bold && part.text === name);
 };
-
-/** Mark interpolated values as bold text, without interpreting any HTML. */
-export const message = (strings: TemplateStringsArray, ...values: unknown[]): MessagePartType[] => {
-  const parts: MessagePartType[] = [];
-  strings.forEach((text, index) => {
-    if (text) parts.push({ text });
-    if (index < values.length) parts.push({ text: String(values[index] ?? ""), bold: true });
-  });
-  return parts;
-};

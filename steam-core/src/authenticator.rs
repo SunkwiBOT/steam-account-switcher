@@ -1,7 +1,7 @@
 use crate::error_code::ErrorCode;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::Arc;
 
 use crate::storage::Database;
@@ -21,13 +21,13 @@ mod vault;
 use vault::Vault;
 mod backup;
 pub use backup::BackupImport;
-
 mod import;
 pub use import::import_mafile;
 
 mod errors;
 mod guard;
 mod link;
+mod link_wal;
 mod login;
 mod transport;
 mod types;
@@ -46,17 +46,21 @@ pub struct Authenticator {
     remembered: BTreeMap<u64, Tokens>,
     login_controls: BTreeMap<String, Arc<AtomicBool>>,
     active_links: BTreeSet<String>,
+    time_offset: AtomicI64,
 }
 
 impl Authenticator {
     pub fn new(database: Database) -> Self {
+        let mut vault = Vault::load(database);
+        link_wal::recover(&mut vault);
         Self {
-            vault: Vault::load(database),
+            vault,
             logins: BTreeMap::new(),
             linkers: BTreeMap::new(),
             remembered: BTreeMap::new(),
             login_controls: BTreeMap::new(),
             active_links: BTreeSet::new(),
+            time_offset: AtomicI64::new(0),
         }
     }
 
@@ -68,13 +72,20 @@ impl Authenticator {
         self.vault.locked
     }
 
-    /// Presentation hints only: secrets and tokens still require unlocking.
     pub fn configured_ids(&self) -> Vec<String> {
         self.vault.configured_ids().into_iter().collect()
     }
 
+    pub fn pending_ids(&self) -> Vec<String> {
+        if self.vault.locked {
+            return Vec::new();
+        }
+        self.vault.pending.iter().cloned().collect()
+    }
+
     pub fn unlock(&mut self, passphrase: &str) -> Result<VaultStatus, AuthError> {
         self.vault.unlock(passphrase)?;
+        link_wal::recover(&mut self.vault);
         Ok(self.vault.status())
     }
 
@@ -101,7 +112,7 @@ impl Authenticator {
         passphrase: Option<String>,
         current_password: Option<String>,
     ) -> Result<VaultStatus, AuthError> {
-        if !self.active_links.is_empty() {
+        if !self.active_links.is_empty() || !self.linkers.is_empty() {
             return Err(AuthError::Busy);
         }
         self.vault.set_passphrase(passphrase, current_password)?;
@@ -132,15 +143,33 @@ impl Authenticator {
             && !self.vault.pending.contains(steam_id)
     }
 
+    pub fn account_name(&self, steam_id: &str) -> Result<String, AuthError> {
+        Ok(self.vault.get(steam_id)?.account_name.clone())
+    }
+
     pub fn code(&self, steam_id: &str) -> Result<CodeInfo, AuthError> {
         let account = self.vault.get(steam_id)?;
-        let time = now_seconds();
+        let time = self.server_time();
         Ok(CodeInfo {
             valid_until: time + seconds_remaining(time),
             code: account.generate_code(time),
             seconds_remaining: seconds_remaining(time),
             period: CODE_PERIOD_SECONDS,
         })
+    }
+
+    fn server_time(&self) -> u64 {
+        let local = now_seconds() as i64;
+        let offset = self.time_offset.load(Ordering::Relaxed);
+        (local + offset).max(0) as u64
+    }
+
+    pub fn time_offset_seconds(&self) -> i64 {
+        self.time_offset.load(Ordering::Relaxed)
+    }
+
+    pub fn set_time_offset(&self, offset: i64) {
+        self.time_offset.store(offset, Ordering::Relaxed);
     }
 
     pub fn revocation_code(&self, steam_id: &str) -> Result<String, AuthError> {
@@ -184,7 +213,6 @@ impl Authenticator {
         Ok(stored)
     }
 
-    /// Copy secrets under the lock; the caller releases it before network work.
     pub fn confirmation_account(&self, steam_id: &str) -> Result<SteamGuardAccount, AuthError> {
         self.vault.require_available()?;
         if self.vault.pending.contains(steam_id) {
@@ -198,8 +226,6 @@ impl Authenticator {
     }
 
     pub fn remember_tokens(&mut self, account: &SteamGuardAccount) -> Result<(), AuthError> {
-        // ! A lock or removal while the request was in flight must not restore
-        // ! secrets, and an older response must not overwrite a newer login.
         if self.vault.locked {
             return Ok(());
         }
@@ -281,8 +307,6 @@ impl Authenticator {
         Ok(())
     }
 
-    /// Moves a pending login out so the caller can block on it without holding
-    /// the vault lock.
     pub fn take_login(&mut self, session_id: &str) -> Result<Login, AuthError> {
         self.logins
             .remove(session_id)
@@ -350,8 +374,6 @@ impl Authenticator {
         })
     }
 
-    /// ! Checks the vault is writable before making a remote change, and copies
-    /// ! the pending material out: network requests never hold the store mutex.
     pub fn prepare_link(
         &mut self,
         steam_id: u64,
@@ -362,9 +384,7 @@ impl Authenticator {
         if !self.active_links.is_empty() {
             return Err(AuthError::Busy);
         }
-        // ! A disk error after AddAuthenticator keeps this session and its
-        // ! secrets in memory; a retry must save and resume it, never start a
-        // ! new link, or the only copy of the secret is lost.
+        // ! A disk error after Steam's AddAuthenticator call keeps the secret in memory; a retry must resume this session, never start a new link.
         if let Some(session_id) = self
             .linkers
             .iter()
@@ -384,18 +404,18 @@ impl Authenticator {
         self.active_links.insert(session_id.clone());
         Ok((
             session_id,
-            PendingLink {
-                linker: AccountLinker::new(transport(), tokens),
+            PendingLink::new(
+                AccountLinker::new(transport(), tokens),
                 account,
-                account_name: account_name.to_string(),
+                account_name.to_string(),
                 steam_id,
-                transferring: false,
-            },
+                link_wal::WalContext::capture(&self.vault),
+            ),
         ))
     }
 
     pub fn store_link(&mut self, session_id: &str, pending: PendingLink) -> Result<(), AuthError> {
-        let saved = if let Some(account) = &pending.account {
+        let saved = if let Some(account) = pending.account() {
             let key = account.steam_id.to_string();
             self.vault.pending.insert(key.clone());
             if let Err(error) = self.vault.insert(account.clone()) {
@@ -439,16 +459,12 @@ impl Authenticator {
             device_id: account.device_id.clone(),
             has_tokens: account.tokens.is_some(),
         };
-        let key = account.steam_id.to_string();
-        let was_pending = self.vault.pending.remove(&key);
-        if let Err(error) = self.vault.insert(account.clone()) {
-            self.vault.accounts.insert(key.clone(), account);
-            if was_pending {
-                self.vault.pending.insert(key);
-            }
+        if let Err(error) = self.vault.commit_link(account.clone()) {
             self.active_links.remove(session_id);
             return Err(error);
         }
+        // ! Clears the write-ahead copy now that the account is durably saved, so it isn't replayed again at next start.
+        let _ = link_wal::WalContext::capture(&self.vault).clear(account.steam_id);
         self.linkers.remove(session_id);
         self.active_links.remove(session_id);
         Ok(stored)
@@ -465,4 +481,11 @@ impl Authenticator {
             .and_then(|account| account.tokens.clone())
             .ok_or(AuthError::NeedsLogin)
     }
+}
+
+pub fn measure_time_offset() -> Result<i64, AuthError> {
+    let server_time = steamguard::steamapi::get_server_time(transport())
+        .map_err(steam_error)?
+        .server_time() as i64;
+    Ok(server_time - now_seconds() as i64)
 }

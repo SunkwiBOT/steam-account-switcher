@@ -1,9 +1,12 @@
-pub(crate) mod accounts;
-pub(crate) mod dto;
-pub(crate) mod preferences;
-pub(crate) mod reports;
-pub(crate) mod snapshots;
-pub(crate) mod updates;
+pub mod accounts;
+pub mod clipboard;
+pub mod dto;
+pub mod log_commands;
+pub mod preferences;
+pub mod reports;
+pub mod snapshots;
+pub mod tracking;
+pub mod updates;
 
 pub(crate) use accounts::login_name;
 pub(crate) use dto::SnapshotDto;

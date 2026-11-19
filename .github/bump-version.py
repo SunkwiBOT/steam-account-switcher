@@ -58,9 +58,9 @@ def check_next(candidate: str) -> str | None:
 
     major, minor, patch = (int(part) for part in released[0].split("."))
     allowed = {
-        f"{major}.{minor}.{patch + 1}",  # patch release
-        f"{major}.{minor + 1}.0",  # feature release
-        f"{major + 1}.0.0",  # breaking release
+        f"{major}.{minor}.{patch + 1}",
+        f"{major}.{minor + 1}.0",
+        f"{major + 1}.0.0",
     }
     if candidate not in allowed:
         raise SystemExit(
@@ -77,7 +77,7 @@ def write_version(version: str) -> list[str]:
 
     changed: list[str] = []
 
-    # Rewrite only the version line: re-serialising the whole file would
+    # ! Rewrite only the version line: re-serialising the whole file would
     # reflow the hand written formatting for nothing.
     conf_text = TAURI_CONF.read_text(encoding="utf-8")
     updated_conf, count = re.subn(
@@ -115,7 +115,7 @@ def write_version(version: str) -> list[str]:
         CARGO_LOCK.write_text(updated_lock, encoding="utf-8")
         changed.append(str(CARGO_LOCK.relative_to(APP_DIR)))
 
-    # The interface package follows the same version, so tooling that reads it
+    # ! The interface package follows the same version, so tooling that reads it
     # (npm, editors) never shows a version the build does not have.
     package_text = PACKAGE_JSON.read_text(encoding="utf-8")
     updated_package, count = re.subn(

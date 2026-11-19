@@ -24,8 +24,7 @@ pub struct RankStore {
 }
 
 impl RankStore {
-    /// Loads every stored choice. A database that cannot be read starts empty:
-    /// the account then shows as unranked instead of blocking the application.
+    // ! A database that cannot be read starts empty: the account then shows as unranked instead of blocking the application.
     pub fn load(database: Database) -> Self {
         let entries = database
             .read("Read rank choices", |connection| {

@@ -1,4 +1,5 @@
 use super::errors::{steam_error, AuthError};
+use super::link_wal::WalContext;
 use super::transport::transport;
 use super::types::{LinkConfirmKind, LinkStart, LinkStatus};
 use super::Linker;
@@ -12,9 +13,43 @@ pub struct PendingLink {
     pub(super) account_name: String,
     pub(super) steam_id: u64,
     pub(super) transferring: bool,
+    pub(super) wal: WalContext,
+    // ! Set the moment Steam accepted a step, independent of whether the WAL write that
+    // followed succeeded: a failed write must not make the next call resend an already
+    // accepted `confirm_code`/`sms_code`, which Steam may reject as stale.
+    accepted: bool,
+    last_wal_warning: Option<String>,
 }
 
 impl PendingLink {
+    pub(super) fn new(
+        linker: Linker,
+        account: Option<SteamGuardAccount>,
+        account_name: String,
+        steam_id: u64,
+        wal: WalContext,
+    ) -> Self {
+        Self {
+            linker,
+            account,
+            account_name,
+            steam_id,
+            transferring: false,
+            wal,
+            accepted: false,
+            last_wal_warning: None,
+        }
+    }
+
+    pub fn account(&self) -> Option<&SteamGuardAccount> {
+        self.account.as_ref()
+    }
+
+    // ! A WAL write failure after Steam already accepted the step is a storage warning, not a link failure, kept here for the caller to log.
+    pub fn take_wal_warning(&mut self) -> Option<String> {
+        self.last_wal_warning.take()
+    }
+
     pub fn start(&mut self, session_id: &str) -> Result<LinkStart, AuthError> {
         use steamguard::ExposeSecret;
         let mut result = LinkStart {
@@ -65,15 +100,23 @@ impl PendingLink {
         &self.account_name
     }
 
-    pub fn has_account(&self) -> bool {
-        self.account.is_some()
-    }
-
+    // ! Idempotent: a step already accepted (in memory, or replayed from the WAL across
+    // processes) replays success instead of resending `confirm_code`, which Steam may reject
+    // as stale.
     pub fn finalize(&mut self, confirm_code: &str) -> Result<(), AuthError> {
+        if self.accepted || self.wal.is_accepted(self.steam_id)? {
+            if let Some(account) = self.wal.load_accepted(self.steam_id)? {
+                self.account = Some(account);
+            }
+            self.accepted = true;
+            return Ok(());
+        }
+
         let account = self
             .account
             .as_mut()
             .ok_or(AuthError::Code(ErrorCode::LinkNotStarted))?;
+        self.wal.before(self.steam_id, account)?;
 
         let transport = transport();
         let mut server_time = steamguard::steamapi::get_server_time(transport.clone())
@@ -85,7 +128,12 @@ impl PendingLink {
                 .linker
                 .finalize(server_time, account, confirm_code.to_string())
             {
-                Ok(()) => return Ok(()),
+                Ok(()) => {
+                    let confirmed = account.clone();
+                    self.accepted = true;
+                    self.note_wal_write("finalize", &confirmed);
+                    return Ok(());
+                }
                 Err(steamguard::FinalizeLinkError::WantMore { server_time: next }) => {
                     server_time = next;
                 }
@@ -116,15 +164,30 @@ impl PendingLink {
         Ok(())
     }
 
+    // ! Idempotent the same way `finalize` is: a step already accepted (in memory, or replayed
+    // from the WAL) is replayed instead of resending `sms_code`.
     pub fn transfer_finish(&mut self, sms_code: &str) -> Result<SteamGuardAccount, AuthError> {
         if !self.transferring {
             return Err(AuthError::Code(ErrorCode::TransferNotStarted));
+        }
+        if self.accepted || self.wal.is_accepted(self.steam_id)? {
+            if let Some(account) = self.wal.load_accepted(self.steam_id)? {
+                self.account = Some(account.clone());
+                self.accepted = true;
+                return Ok(account);
+            }
+        }
+        if let Some(account) = &self.account {
+            self.wal.before(self.steam_id, account)?;
         }
         let account = self
             .linker
             .transfer_finish(sms_code)
             .map_err(|_| AuthError::Code(ErrorCode::TransferFailed))?;
+        // ! Steam already invalidated the old authenticator; keep the new secret in memory before touching the WAL so a failed write never drops it.
         self.account = Some(account.clone());
+        self.accepted = true;
+        self.note_wal_write("transfer_finish", &account);
         Ok(account)
     }
 
@@ -134,8 +197,11 @@ impl PendingLink {
             .map_err(steam_error)
     }
 
-    pub fn is_transferring(&self) -> bool {
-        self.transferring
+    // ! The WAL is a safety net, not a gate: a failed write after Steam already accepted the step becomes a safe-to-log warning, not a failure.
+    pub(super) fn note_wal_write(&mut self, step: &'static str, account: &SteamGuardAccount) {
+        if let Err(error) = self.wal.after_accepted(self.steam_id, account) {
+            self.last_wal_warning = Some(format!("after {step}: {error}"));
+        }
     }
 
     pub fn take_account(&mut self) -> Option<SteamGuardAccount> {

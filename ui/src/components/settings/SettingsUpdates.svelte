@@ -2,65 +2,35 @@
   import MessageText from "../ui/MessageText.svelte";
   import { t, rich, formatDate } from "../../lib/i18n/i18n.svelte";
 
-  import { UpdateCheck, UpdateInterval, UpdateStage } from "../../lib/state/state.constants";
+  import { UpdateCheck, UpdateStage } from "../../lib/state/state.constants";
+  import type { UpdateInterval } from "../../lib/bindings/UpdateInterval";
   import AsyncIcon from "../ui/AsyncIcon.svelte";
-  import {
-    checkForUpdate,
-    checkForUpdateIfDue,
-    openRepository,
-    repositoryUrl,
-  } from "../../lib/actions/actions.svelte";
-  import { app, EMPTY_SETTINGS, run } from "../../lib/state/state.svelte";
-  import { dropdown, openDropdown } from "../../lib/state/menus.svelte";
-  import {
-    CheckCircle,
-    ChevronDown,
-    Download,
-    ExternalLink,
-    Power,
-    RefreshCw,
-  } from "@lucide/svelte";
+  import { checkForUpdate } from "../../lib/actions/updates.svelte";
+  import { openRepository, repositoryUrl } from "../../lib/actions/repository.svelte";
+  import { app } from "../../lib/state/state.svelte";
+  import { settingsDraft } from "../../lib/state/settings-draft.svelte";
+  import SelectSetting from "../ui/SelectSetting.svelte";
+  import { CheckCircle, Download, ExternalLink, Power, RefreshCw } from "@lucide/svelte";
 
-  const settings = $derived(app.snapshot?.settings ?? EMPTY_SETTINGS);
-  const intervals = $derived([
-    { value: UpdateInterval.NEVER, label: t.updates_check_never() },
-    { value: UpdateInterval.STARTUP, label: t.updates_check_startup() },
-    { value: UpdateInterval.FIFTEEN_MINUTES, label: t.updates_check_15_minutes() },
-    { value: UpdateInterval.THIRTY_MINUTES, label: t.updates_check_30_minutes() },
-    { value: UpdateInterval.ONE_HOUR, label: t.updates_check_hourly() },
-    { value: UpdateInterval.SIX_HOURS, label: t.updates_check_6_hours() },
-    { value: UpdateInterval.ONE_DAY, label: t.updates_check_daily() },
-    { value: UpdateInterval.ONE_WEEK, label: t.updates_check_weekly() },
+  const intervals = $derived<{ value: UpdateInterval; label: string }[]>([
+    { value: "NEVER", label: t.updates_check_never() },
+    { value: "STARTUP", label: t.updates_check_startup() },
+    { value: "FIFTEEN_MINUTES", label: t.updates_check_15_minutes() },
+    { value: "THIRTY_MINUTES", label: t.updates_check_30_minutes() },
+    { value: "ONE_HOUR", label: t.updates_check_hourly() },
+    { value: "SIX_HOURS", label: t.updates_check_6_hours() },
+    { value: "ONE_DAY", label: t.updates_check_daily() },
+    { value: "ONE_WEEK", label: t.updates_check_weekly() },
   ]);
+  const draft = $derived(settingsDraft.value);
   const intervalLabel = $derived(
-    intervals.find((option) => option.value === settings.update_interval)?.label ??
+    intervals.find((option) => option.value === draft.updateInterval)?.label ??
       t.updates_check_6_hours(),
   );
-  let intervalBusy = $state(false);
-  let intervalButton = $state<HTMLButtonElement | null>(null);
 
-  const changeInterval = async (interval: UpdateInterval): Promise<void> => {
-    if (intervalBusy || interval === settings.update_interval) return;
-    intervalBusy = true;
-    try {
-      if (await run("set_update_interval", { interval })) void checkForUpdateIfDue();
-    } finally {
-      intervalBusy = false;
-    }
-  };
-
-  const pickInterval = (event: MouseEvent): void => {
-    const anchor = event.currentTarget;
-    if (intervalBusy || !(anchor instanceof HTMLElement)) return;
-    openDropdown({
-      anchor,
-      value: settings.update_interval,
-      options: intervals,
-      onSelect: (value) => {
-        const interval = Object.values(UpdateInterval).find((choice) => choice === value);
-        if (interval) void changeInterval(interval);
-      },
-    });
+  const selectInterval = (value: string): void => {
+    const interval = intervals.find((option) => option.value === value)?.value;
+    if (interval) settingsDraft.set("updateInterval", interval);
   };
 </script>
 
@@ -160,26 +130,18 @@
     </p>
     <div class="settings-update-frequency">
       <span class="field-label">{t.updates_schedule_label()}</span>
-      <button
-        class="select-button"
-        type="button"
-        aria-label={t.updates_schedule_label()}
-        aria-haspopup="listbox"
-        aria-expanded={dropdown.open && dropdown.anchor === intervalButton}
-        aria-busy={intervalBusy}
-        bind:this={intervalButton}
-        disabled={intervalBusy}
-        onclick={pickInterval}
-      >
-        <span>{intervalBusy ? t.common_saving() : intervalLabel}</span>
-        <span class="picker-caret"
-          ><AsyncIcon icon={ChevronDown} busy={intervalBusy} size={14} /></span
-        >
-      </button>
+      <SelectSetting
+        value={draft.updateInterval}
+        options={intervals}
+        label={intervalLabel}
+        ariaLabel={t.updates_schedule_label()}
+        disabled={settingsDraft.saving}
+        onselect={selectInterval}
+      />
       <p class="settings-note">
-        {settings.update_interval === UpdateInterval.NEVER
+        {draft.updateInterval === "NEVER"
           ? t.updates_checks_disabled()
-          : settings.update_interval === UpdateInterval.STARTUP
+          : draft.updateInterval === "STARTUP"
             ? t.updates_checks_startup_description()
             : t.updates_checks_description()}
       </p>

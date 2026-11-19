@@ -73,11 +73,12 @@ impl AppState {
             inner.manager = None;
             inner.accounts.clear();
             inner.tracker = None;
-            inner.last_error = error;
+            inner.accounts_error = ErrorCode::from_code(&error);
         }
     }
 
     pub fn select_installation(&self, index: usize) -> Result<(), String> {
+        let _switch = self.tracking_switch();
         let installation = {
             let inner = self.lock();
             inner
@@ -88,11 +89,28 @@ impl AppState {
         };
 
         let manager = Arc::new(SteamManager::new(installation.clone()));
-        let accounts = manager.list_accounts().unwrap_or_default();
+        let (accounts, accounts_error) = match manager.list_accounts() {
+            Ok(accounts) => (accounts, None),
+            Err(error) => {
+                crate::logging::write(&format!(
+                    "action=select_installation status=failed error={}",
+                    crate::logging::error_category(&error.to_string())
+                ));
+                (Vec::new(), Some(error.code()))
+            }
+        };
         let auto_login_user = manager.auto_login_user().unwrap_or_default();
 
-        let mut inner = self.lock();
-        if let Some(tracker) = &inner.tracker {
+        // ! Runs without the state lock held, since this I/O (above, and `build_tracker` below) must never block the tray menu or the window close handler, which take the same lock.
+        let (previous_tracker, monitor, tracking_enabled) = {
+            let inner = self.lock();
+            (
+                inner.tracker.clone(),
+                Arc::clone(&inner.monitor),
+                inner.settings.data().tracking_enabled,
+            )
+        };
+        if let Some(tracker) = &previous_tracker {
             tracker
                 .lock()
                 .map_err(|_| ErrorCode::PlaytimeBusy.to_string())?
@@ -102,27 +120,25 @@ impl AppState {
         let tracker = Arc::new(Mutex::new(build_tracker(
             &manager,
             self.database.clone(),
-            Arc::clone(&inner.monitor),
-            inner.settings.data().tracking_enabled,
+            monitor,
+            tracking_enabled,
         )));
+
+        let mut inner = self.lock();
         inner.selected = index;
         inner.manager = Some(manager);
         inner.tracker = Some(tracker);
         inner.accounts = accounts;
+        inner.accounts_error = accounts_error;
         inner.auto_login_user = auto_login_user;
         Ok(())
     }
 
     pub fn set_ui_settings(&self, show_installation_selector: bool) -> Result<(), String> {
         let mut inner = self.lock();
-        let previous = inner.settings.data().show_installation_selector;
-        let settings = inner.settings.data_mut();
-        settings.show_installation_selector = show_installation_selector;
-        if let Err(error) = inner.settings.save() {
-            inner.settings.data_mut().show_installation_selector = previous;
-            return Err(error);
-        }
-        Ok(())
+        let previous = inner.settings.data().clone();
+        inner.settings.data_mut().show_installation_selector = show_installation_selector;
+        save_or_restore(&mut inner.settings, previous)
     }
 
     pub fn set_installation_hidden(&self, root: &str, hidden: bool) -> Result<(), String> {
@@ -139,8 +155,7 @@ impl AppState {
         }
         self.reload_installations();
 
-        // Hiding the selected installation moved the selection elsewhere;
-        // revealing it must select it back or the list stays on the one that took over.
+        // ! Hiding the selected installation moved the selection elsewhere; revealing it must select it back or the list stays on the one that took over.
         if !hidden {
             let wanted = key_for_path(root);
             let index = {
@@ -203,17 +218,18 @@ impl AppState {
                 let mut inner = self.lock();
                 inner.accounts = accounts;
                 inner.auto_login_user = auto_login_user;
+                inner.accounts_error = None;
             }
             Err(error) => {
-                let message = error.to_string();
+                let code = error.code();
                 let mut inner = self.lock();
-                if inner.last_error != message {
+                if inner.accounts_error != Some(code) {
                     crate::logging::write(&format!(
                         "action=refresh_accounts status=failed error={}",
-                        crate::logging::error_category(&message)
+                        crate::logging::error_category(&error.to_string())
                     ));
                 }
-                inner.last_error = message;
+                inner.accounts_error = Some(code);
             }
         }
     }
@@ -222,7 +238,7 @@ impl AppState {
         self.lock().tracker.clone()
     }
 
-    /// Stops the tracker cleanly so active sessions are checkpointed.
+    // ! Stops the tracker cleanly so active sessions are checkpointed.
     pub fn close_tracker(&self) {
         if let Some(tracker) = self.tracker() {
             if let Ok(mut tracker) = tracker.lock() {

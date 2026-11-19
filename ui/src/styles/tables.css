@@ -11,8 +11,7 @@
 
 .data-table {
   width: 100%;
-  /* ! `separate` keeps the sticky header painted over the scrolling rows; with
-     `collapse` WebKit lets rows draw above it. */
+  /* ! `separate` keeps the sticky header painted over the scrolling rows: with `collapse` WebKit lets rows draw above it. */
   border-collapse: separate;
   border-spacing: 0;
   table-layout: fixed;

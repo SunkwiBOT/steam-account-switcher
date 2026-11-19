@@ -12,6 +12,7 @@ pub async fn steam_guard_link_start(
     steam_id: String,
 ) -> Result<LinkStart, String> {
     crate::logging::run_async("steam_guard_link_start", async {
+        let _in_flight = state.begin_link_operation();
         let numeric: u64 = steam_id
             .parse()
             .map_err(|_| ErrorCode::InvalidSteamId.to_string())?;
@@ -45,7 +46,7 @@ pub async fn steam_guard_link_start(
                 }
                 Err(error) => {
                     guard.finish_link_operation(&session_id);
-                    Err(error.to_string())
+                    Err(crate::logging::auth_error("steam_guard_link_start", &error))
                 }
             }
         })
@@ -62,6 +63,7 @@ pub async fn steam_guard_link_finalize(
     confirm_code: String,
 ) -> Result<SnapshotDto, String> {
     crate::logging::run_async("steam_guard_link_finalize", async {
+        let _in_flight = state.begin_link_operation();
         let authenticator = state.authenticator();
         let mut pending = {
             let mut guard = authenticator
@@ -73,7 +75,7 @@ pub async fn steam_guard_link_finalize(
         };
 
         let session = session_id.clone();
-        let (pending, outcome) = tauri::async_runtime::spawn_blocking(move || {
+        let (mut pending, outcome) = tauri::async_runtime::spawn_blocking(move || {
             let result = (|| {
                 pending.finalize(&confirm_code)?;
                 pending.verify()?;
@@ -88,6 +90,11 @@ pub async fn steam_guard_link_finalize(
 
         match outcome {
             Ok(account) => {
+                if let Some(warning) = pending.take_wal_warning() {
+                    crate::logging::write(&format!(
+                        "action=steam_guard_link_finalize status=wal_warning detail={warning}"
+                    ));
+                }
                 let mut guard = authenticator
                     .lock()
                     .unwrap_or_else(|error| error.into_inner());
@@ -102,7 +109,10 @@ pub async fn steam_guard_link_finalize(
                     .lock()
                     .unwrap_or_else(|error| error.into_inner());
                 guard.put_linker(&session, pending);
-                Err(error.to_string())
+                Err(crate::logging::auth_error(
+                    "steam_guard_link_finalize",
+                    &error,
+                ))
             }
         }
     })
@@ -115,6 +125,7 @@ pub async fn steam_guard_link_transfer_start(
     session_id: String,
 ) -> Result<(), String> {
     crate::logging::run_async("steam_guard_link_transfer_start", async {
+        let _in_flight = state.begin_link_operation();
         let authenticator = state.authenticator();
         let mut pending = {
             let mut guard = authenticator
@@ -149,6 +160,7 @@ pub async fn steam_guard_link_transfer_finish(
     sms_code: String,
 ) -> Result<SnapshotDto, String> {
     crate::logging::run_async("steam_guard_link_transfer_finish", async {
+        let _in_flight = state.begin_link_operation();
         let authenticator = state.authenticator();
         let mut pending = {
             let mut guard = authenticator
@@ -160,7 +172,7 @@ pub async fn steam_guard_link_transfer_finish(
         };
 
         let session = session_id.clone();
-        let (pending, outcome) = tauri::async_runtime::spawn_blocking(move || {
+        let (mut pending, outcome) = tauri::async_runtime::spawn_blocking(move || {
             let result = pending.transfer_finish(&sms_code);
             (pending, result)
         })
@@ -169,6 +181,11 @@ pub async fn steam_guard_link_transfer_finish(
 
         match outcome {
             Ok(account) => {
+                if let Some(warning) = pending.take_wal_warning() {
+                    crate::logging::write(&format!(
+                        "action=steam_guard_link_transfer_finish status=wal_warning detail={warning}"
+                    ));
+                }
                 let mut guard = authenticator
                     .lock()
                     .unwrap_or_else(|error| error.into_inner());
@@ -183,7 +200,10 @@ pub async fn steam_guard_link_transfer_finish(
                     .lock()
                     .unwrap_or_else(|error| error.into_inner());
                 guard.put_linker(&session, pending);
-                Err(error.to_string())
+                Err(crate::logging::auth_error(
+                    "steam_guard_link_transfer_finish",
+                    &error,
+                ))
             }
         }
     })
@@ -197,6 +217,7 @@ pub async fn steam_guard_link_revoke(
     revocation_code: String,
 ) -> Result<(), String> {
     crate::logging::run_async("steam_guard_link_revoke", async {
+        let _in_flight = state.begin_link_operation();
         let authenticator = state.authenticator();
         let mut pending = {
             let mut guard = authenticator

@@ -101,9 +101,5 @@ pub(super) fn confirmation_item(confirmation: &Confirmation) -> ConfirmationItem
         kind,
         headline: confirmation.headline.clone(),
         summary: confirmation.summary.join("\n"),
-        creator_id: confirmation.creator_id.clone(),
-        creation_time: confirmation.creation_time,
-        icon: confirmation.icon.clone(),
-        multi: confirmation.multi,
     }
 }

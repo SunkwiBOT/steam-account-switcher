@@ -6,6 +6,7 @@ use aes::{
     Aes256,
 };
 use serde::Deserialize;
+use std::io::Read;
 use std::{fs, path::Path};
 use steamguard::{token::TwoFactorSecret, SteamGuardAccount};
 use zeroize::Zeroizing;
@@ -81,8 +82,7 @@ fn deserialize_optional_u64<'de, D: serde::Deserializer<'de>>(
         .transpose()
 }
 
-/// Encrypted .maFile backups use AES-256-CBC with a PBKDF2-HMAC-SHA1 key.
-/// Their IV and salt are stored in the sibling `manifest.json`.
+// ! Encrypted .maFile backups use AES-256-CBC with a PBKDF2-HMAC-SHA1 key, with the IV and salt stored in the sibling `manifest.json`.
 fn decrypt_backup(
     ciphertext: &[u8],
     passkey: &str,
@@ -113,8 +113,24 @@ fn decrypt_backup(
     Ok(plaintext.to_vec())
 }
 
+// ! A maFile or its sibling manifest never legitimately approaches this size; an unbounded read would let a crafted file exhaust memory.
+const MAX_IMPORT_BYTES: u64 = 1024 * 1024;
+
+fn read_capped(path: &Path) -> Result<Vec<u8>, AuthError> {
+    let mut bytes = Vec::new();
+    fs::File::open(path)
+        .map_err(io_error)?
+        .take(MAX_IMPORT_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(io_error)?;
+    if bytes.len() as u64 > MAX_IMPORT_BYTES {
+        return Err(AuthError::InvalidBackup);
+    }
+    Ok(bytes)
+}
+
 pub fn import_mafile(path: &Path, passkey: Option<&str>) -> Result<SteamGuardAccount, AuthError> {
-    let bytes = fs::read(path).map_err(io_error)?;
+    let bytes = read_capped(path)?;
     let looks_like_json = bytes
         .iter()
         .find(|byte| !byte.is_ascii_whitespace())
@@ -130,8 +146,10 @@ pub fn import_mafile(path: &Path, passkey: Option<&str>) -> Result<SteamGuardAcc
             .map(|name| name.to_string_lossy().to_string())
             .unwrap_or_default();
         let manifest_path = path.with_file_name("manifest.json");
-        let manifest_text = fs::read_to_string(&manifest_path)
+        let manifest_bytes = read_capped(&manifest_path)
             .map_err(|_| AuthError::Code(ErrorCode::BackupManifestMissing))?;
+        let manifest_text =
+            String::from_utf8(manifest_bytes).map_err(|_| AuthError::InvalidBackupManifest)?;
         let manifest: SdaManifest =
             serde_json::from_str(&manifest_text).map_err(|_| AuthError::InvalidBackupManifest)?;
         let entry = manifest

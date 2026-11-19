@@ -1,52 +1,26 @@
 import { errorMessage } from "../errors/errors.svelte";
-import { Language } from "../i18n/i18n.constants";
-import { VaultLockInterval } from "./state.constants";
 import type { BackupMode } from "../vault/backup.constants";
 import { applyLanguage } from "../i18n/i18n.svelte";
+import type { ResolvedLanguageType } from "../i18n/i18n.constants";
 import { t } from "../i18n/i18n.svelte";
-import {
-  SearchScope,
-  SettingsSection,
-  UpdateCheck,
-  UpdateInterval,
-  UpdateStage,
-  ReportTab,
-} from "./state.constants";
-import { matchesSearch } from "../accounts/search";
+import { SettingsSection, ToastKind, UpdateCheck, UpdateStage, ReportTab } from "./state.constants";
 
 import { invoke, type CommandsType } from "../api/tauri";
-import type { MessageType, MessagePartType } from "../i18n/messages";
-import type {
-  AccountType,
-  AppInfoType,
-  FolderType,
-  PlaytimeSnapshotType,
-  ReportType,
-  SettingsType,
-  SnapshotType,
-  ToastAccountType,
-  ToastFolderType,
-  UpdateInfoType,
-} from "../types";
+import type { MessageType } from "../i18n/messages";
+import type { AccountDto } from "../bindings/AccountDto";
+import type { AppInfoDto } from "../bindings/AppInfoDto";
+import type { PlaytimeSnapshotDto } from "../bindings/PlaytimeSnapshotDto";
+import type { ReportDto } from "../bindings/ReportDto";
+import type { SnapshotDto } from "../bindings/SnapshotDto";
+import type { UpdateInfoDto } from "../bindings/UpdateInfoDto";
+import type { ToastAccountType } from "../types";
+import { showToast } from "./toasts.svelte";
 
-export const EMPTY_SETTINGS: SettingsType = {
-  language: Language.AUTO,
-  resolved_language: Language.EN,
-  show_installation_selector: true,
-  tracking_enabled: true,
-  tracking_history: [],
-  close_to_tray: true,
-  update_interval: UpdateInterval.SIX_HOURS,
-  search_scope: SearchScope.BOTH,
-  vault_lock_interval: VaultLockInterval.STARTUP,
-  last_update_check_at: null,
-  entries: [],
-  database_path: "",
-};
+export { showToast };
 
 export type AppStateType = {
-  snapshot: SnapshotType | null;
-  info: AppInfoType;
+  snapshot: SnapshotDto | null;
+  info: AppInfoDto;
   search: string;
   folderId: string | null;
   openAccountId: string | null;
@@ -57,11 +31,12 @@ export type AppStateType = {
   steamGuardOpen: boolean;
   steamGuardAccountId: string | null;
   vaultOpen: boolean;
+  vaultOfferOpen: boolean;
   vaultCopySteamId: string | null;
   vaultRemoveSteamId: string | null;
   backup: { mode: BackupMode; steamId: string | null } | null;
   updateDialog: boolean;
-  update: UpdateInfoType | null;
+  update: UpdateInfoDto | null;
   updateCheck: UpdateCheck;
   updateCheckedAt: number;
   updateStage: UpdateStage;
@@ -70,21 +45,13 @@ export type AppStateType = {
     downloaded: number;
     total: number;
   };
-  report: ReportType | null;
+  report: ReportDto | null;
   reportLoadingId: string;
   reportTab: ReportTab;
   chartRange: number;
   busy: {
     active: boolean;
     text: string;
-  };
-  toast: {
-    visible: boolean;
-    text: string;
-    parts: MessagePartType[];
-    ok: boolean;
-    account: ToastAccountType | null;
-    folder: ToastFolderType | null;
   };
 };
 
@@ -94,6 +61,7 @@ export const app: AppStateType = $state({
     name: "Steam Account Switcher",
     version: "",
     repository: "",
+    backup_extension: "",
   },
   search: "",
   folderId: null,
@@ -105,6 +73,7 @@ export const app: AppStateType = $state({
   steamGuardOpen: false,
   steamGuardAccountId: null,
   vaultOpen: false,
+  vaultOfferOpen: false,
   vaultCopySteamId: null,
   vaultRemoveSteamId: null,
   backup: null,
@@ -120,113 +89,32 @@ export const app: AppStateType = $state({
   reportTab: ReportTab.GAME,
   chartRange: 30,
   busy: { active: false, text: t.common_working() },
-  toast: { visible: false, text: "", parts: [], ok: false, account: null, folder: null },
 });
-
-let toastTimer = 0;
-
-export const showToast = (
-  content: MessageType,
-  ok = false,
-  account: ToastAccountType | null = null,
-  folder: ToastFolderType | null = null,
-): void => {
-  const parts = typeof content === "string" ? [{ text: content }] : content;
-  app.toast = {
-    visible: true,
-    text: parts.map((part) => part.text).join(""),
-    parts,
-    ok,
-    account: account
-      ? {
-          avatar: account.avatar,
-          initial: account.initial,
-          display_name: account.display_name,
-          persona_name: account.persona_name,
-        }
-      : null,
-    folder: folder
-      ? {
-          name: folder.name,
-          color: folder.color,
-          icon: folder.icon,
-          system: folder.system,
-        }
-      : null,
-  };
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    app.toast = { ...app.toast, visible: false };
-  }, 4200);
-};
 
 export const setBusy = (active: boolean, text: string = t.common_working()): void => {
   app.busy = { active, text };
 };
 
-export const accounts = (): AccountType[] => {
+export const accounts = (): AccountDto[] => {
   return app.snapshot?.accounts ?? [];
 };
 
 export const trackingEnabled = (): boolean => app.snapshot?.settings.tracking_enabled !== false;
 
-export const folders = (): FolderType[] => {
-  const list = app.snapshot?.folders ?? [];
-  return [...list.filter((folder) => folder.system), ...list.filter((folder) => !folder.system)];
-};
-
-export const accountById = (steamId: string): AccountType | null => {
+export const accountById = (steamId: string): AccountDto | null => {
   return accounts().find((entry) => entry.steam_id === steamId) ?? null;
 };
 
-export const currentFolder = (): FolderType | null => {
-  return folders().find((folder) => folder.id === app.folderId) ?? null;
-};
-
-export const folderById = (id: string): FolderType | null => {
-  return folders().find((folder) => folder.id === id) ?? null;
-};
-
-export const visibleAccounts = (): AccountType[] => {
-  const needle = app.search.trim().toLowerCase();
-  const scope = app.snapshot?.settings.search_scope ?? SearchScope.BOTH;
-  return accounts()
-    .filter((entry) => {
-      // A folder always scopes the list, with or without a search term.
-      if (app.folderId !== null && entry.folder_id !== app.folderId) return false;
-      if (!needle) {
-        return app.folderId === null ? !entry.folder_id : true;
-      }
-      return matchesSearch(entry, needle, scope);
-    })
-    .sort((left, right) => right.last_login_seconds - left.last_login_seconds);
-};
-
-export const visibleFolders = (): FolderType[] => {
-  return app.search.trim() || app.folderId !== null ? [] : folders();
-};
-
-export const emptyMessage = (): string => {
-  const snapshot = app.snapshot;
-  if (!snapshot) {
-    return "";
-  }
-  if (snapshot.installations.length === 0) {
-    return t.accounts_no_installation();
-  }
-  if (snapshot.accounts.length === 0) {
-    return t.accounts_empty();
-  }
-  return t.accounts_search_empty();
-};
-
-export const applySnapshot = (snapshot: SnapshotType): void => {
-  if ((snapshot.revision ?? 0) < (app.snapshot?.revision ?? 0)) return;
+export const applySnapshot = (snapshot: SnapshotDto): void => {
+  if (snapshot.revision < (app.snapshot?.revision ?? 0)) return;
   const known = new Set(accounts().map((entry) => entry.steam_id));
   app.snapshot = snapshot;
   if (!trackingEnabled()) app.report = null;
   app.updateCheckedAt = Math.max(app.updateCheckedAt, snapshot.settings.last_update_check_at ?? 0);
-  applyLanguage(snapshot.settings.language ?? Language.AUTO, snapshot.settings.resolved_language);
+  applyLanguage(
+    snapshot.settings.language,
+    snapshot.settings.resolved_language as ResolvedLanguageType,
+  );
 
   if (app.folderId && !snapshot.folders.some((folder) => folder.id === app.folderId)) {
     app.folderId = null;
@@ -238,12 +126,12 @@ export const applySnapshot = (snapshot: SnapshotType): void => {
     app.openAccountId = null;
   }
   if (known.size > 0 && snapshot.accounts.some((entry) => !known.has(entry.steam_id))) {
-    showToast(t.accounts_refresh_success(), true);
+    showToast(ToastKind.SUCCESS, t.accounts_refresh_success());
   }
 };
 
-export const applyPlaytime = (playtime: PlaytimeSnapshotType): void => {
-  if (!playtime || !app.snapshot) {
+export const applyPlaytime = (playtime: PlaytimeSnapshotDto): void => {
+  if (!app.snapshot) {
     return;
   }
 
@@ -263,6 +151,7 @@ export const applyPlaytime = (playtime: PlaytimeSnapshotType): void => {
 
 export type RunOptionsType = {
   busy?: string;
+  successTitle?: string;
   success?: MessageType;
   account?: ToastAccountType | null;
 };
@@ -285,12 +174,15 @@ export const run = async <K extends keyof CommandsType>(
     if (isSnapshot(result)) {
       applySnapshot(result);
     }
-    if (options.success) {
-      showToast(options.success, true, account);
+    if (options.successTitle) {
+      showToast(ToastKind.SUCCESS, options.successTitle, { description: options.success, account });
     }
     return result;
-  } catch (error) {
-    showToast(errorMessage(error), false, account);
+  } catch (error: unknown) {
+    showToast(ToastKind.ERROR, t.toast_error_title(), {
+      description: errorMessage(error),
+      account,
+    });
     return null;
   } finally {
     if (options.busy) {
@@ -299,7 +191,7 @@ export const run = async <K extends keyof CommandsType>(
   }
 };
 
-export const isSnapshot = (value: unknown): value is SnapshotType => {
+export const isSnapshot = (value: unknown): value is SnapshotDto => {
   return (
     typeof value === "object" &&
     value !== null &&

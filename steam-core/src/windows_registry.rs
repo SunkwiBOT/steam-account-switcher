@@ -1,5 +1,4 @@
-//! Unlike Linux, the Windows Steam client does not write a `registry.vdf`
-//! mirror: the auto-login account lives in `HKCU\Software\Valve\Steam`.
+// ! Unlike Linux, the Windows Steam client does not write a `registry.vdf` mirror: the auto-login account lives in `HKCU\Software\Valve\Steam`.
 
 use std::io;
 use std::path::PathBuf;
@@ -20,8 +19,7 @@ pub fn steam_path() -> Option<PathBuf> {
     path.is_dir().then_some(path)
 }
 
-/// `HKLM\SOFTWARE\WOW6432Node\Valve\Steam\InstallPath`, used as a fallback when
-/// the per-user key is missing (fresh machine, different OS user).
+// ! `HKLM\SOFTWARE\WOW6432Node\Valve\Steam\InstallPath`, used as a fallback when the per-user key is missing (fresh machine, different OS user).
 pub fn steam_install_path() -> Option<PathBuf> {
     let key = RegKey::predef(HKEY_LOCAL_MACHINE)
         .open_subkey_with_flags(
@@ -41,6 +39,15 @@ pub fn steam_install_path() -> Option<PathBuf> {
 pub fn read_auto_login() -> Option<String> {
     let key = current_user_key().ok()?;
     key.get_value::<String, _>("AutoLoginUser").ok()
+}
+
+// ! Steam writes its own PID here only once actually up, unlike the launcher process (named `steam.exe` from the instant it is spawned).
+pub fn active_process_pid() -> Option<u32> {
+    let key = current_user_key()
+        .ok()?
+        .open_subkey_with_flags("ActiveProcess", KEY_READ)
+        .ok()?;
+    key.get_value::<u32, _>("pid").ok()
 }
 
 pub fn write_auto_login(account_name: &str) -> io::Result<()> {

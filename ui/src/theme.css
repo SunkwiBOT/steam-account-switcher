@@ -1,0 +1,108 @@
+/* ! Shared shadcn/bits-ui token names mapped onto the existing Steam palette
+   in styles/base.css: same token names/shapes as steam-guard-desktop's
+   tokens.css. */
+
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant data-open (&:where([data-state="open"], [data-open]:not([data-open="false"])));
+@custom-variant data-closed (&:where([data-state="closed"], [data-closed]:not([data-closed="false"])));
+@custom-variant data-checked (&:where([data-state="checked"], [data-checked]:not([data-checked="false"])));
+@custom-variant data-unchecked (&:where([data-state="unchecked"], [data-unchecked]:not([data-unchecked="false"])));
+@custom-variant data-active (&:where([data-state="active"], [data-active]:not([data-active="false"])));
+
+:root {
+  color-scheme: dark;
+  --radius: 0.25rem;
+  --background: var(--window);
+  --foreground: var(--text);
+  --card: var(--panel);
+  --card-foreground: var(--text-strong);
+  --popover: var(--base-alt);
+  --popover-foreground: var(--text-strong);
+  --token-primary: var(--accent);
+  --primary-foreground: #0b1118;
+  --secondary: var(--button);
+  --secondary-foreground: var(--text);
+  --token-muted: var(--base);
+  --muted-foreground: var(--muted);
+  --accent-ui: var(--button-hover);
+  --accent-ui-foreground: var(--text-strong);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--danger-text);
+  --destructive-emphasis: var(--error-text);
+  --success-emphasis: var(--green-bright);
+  --input: var(--border-strong);
+  --ring: var(--accent);
+  --success: var(--success-bg);
+  --success-foreground: var(--success-text);
+  --warning: var(--warning-bg);
+  --warning-foreground: var(--warning-text);
+  --info: var(--notice-bg);
+  --info-foreground: var(--notice-text);
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* ! svelte-sonner's TOAST_WIDTH: our own card fills that slot exactly. */
+  --container-toast: 356px;
+
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.5);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--token-primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--token-muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent-ui);
+  --color-destructive-emphasis: var(--destructive-emphasis);
+  --color-success-emphasis: var(--success-emphasis);
+  --color-accent-foreground: var(--accent-ui-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  :where(button, summary, [role="button"], [role="menuitem"], [role="tab"]) {
+    &:not(input) {
+      user-select: none;
+    }
+
+    &:not(:disabled, [aria-disabled="true"], [data-disabled]) {
+      cursor: pointer;
+    }
+
+    &:is(:disabled, [aria-disabled="true"], [data-disabled]) {
+      cursor: not-allowed;
+    }
+
+    /* ! Busy wins over disabled: in progress, not forbidden. */
+    &[aria-busy="true"] {
+      cursor: progress;
+    }
+  }
+}

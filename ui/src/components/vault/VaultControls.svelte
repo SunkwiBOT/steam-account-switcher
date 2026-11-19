@@ -1,22 +1,27 @@
 <script lang="ts">
   import DialogHeader from "../dialogs/DialogHeader.svelte";
-  import { ErrorApiMessage } from "../../lib/errors/errors.constants";
-  import { errorMessage, resolveErrorCode } from "../../lib/errors/errors.svelte";
+  import AppDialog from "../dialogs/AppDialog.svelte";
+  import { DialogContent } from "$lib/components/ui/dialog/index.js";
+  import { errorMessage, resolveErrorCode, vaultErrorHint } from "../../lib/errors/errors.svelte";
 
   import { t } from "../../lib/i18n/i18n.svelte";
 
   import { VaultOperation, VaultEditor, VaultPasswordField } from "./VaultControls.constants";
-  import { AlertTriangle, ChevronDown, KeyRound, Lock, ShieldOff, Unlock, X } from "@lucide/svelte";
+  import { AlertTriangle, KeyRound, Lock, ShieldOff, Unlock, X } from "@lucide/svelte";
   import { app, applySnapshot, showToast } from "../../lib/state/state.svelte";
-  import { VaultLockInterval } from "../../lib/state/state.constants";
-  import { dropdown, openDropdown } from "../../lib/state/menus.svelte";
+  import { ToastKind } from "../../lib/state/state.constants";
+  import type { VaultLockInterval } from "../../lib/bindings/VaultLockInterval";
+  import SelectSetting from "../ui/SelectSetting.svelte";
   import { invoke } from "../../lib/api/tauri";
-  import type { SnapshotType } from "../../lib/types";
+  import type { SnapshotDto } from "../../lib/bindings/SnapshotDto";
   import { vaultCountdown } from "../../lib/vault/vault-lock";
   import AsyncIcon from "../ui/AsyncIcon.svelte";
   import CopyButton from "../ui/CopyButton.svelte";
   import PasswordInput from "../ui/PasswordInput.svelte";
   import FormError from "../ui/FormError.svelte";
+  import { settingsDraft } from "../../lib/state/settings-draft.svelte";
+  import UnsavedBar from "../ui/UnsavedBar.svelte";
+  import { vaultEditorDirty } from "../../lib/vault/vault-editor";
 
   type VaultControlsPropsType = {
     onready?: () => void;
@@ -32,35 +37,29 @@
   let error = $state("");
   let passphrase = $state("");
   let editor = $state<VaultEditor | null>(null);
-  let dialog = $state<HTMLDialogElement>();
   let currentPassword = $state("");
   let newPassword = $state("");
   let repeated = $state("");
   let fieldError = $state<VaultPasswordField | null>(null);
-  const lockIntervals = $derived([
-    { value: VaultLockInterval.STARTUP, label: t.vault_lock_startup() },
-    { value: VaultLockInterval.FIVE_MINUTES, label: t.vault_lock_5_minutes() },
-    { value: VaultLockInterval.TEN_MINUTES, label: t.vault_lock_10_minutes() },
-    { value: VaultLockInterval.FIFTEEN_MINUTES, label: t.vault_lock_15_minutes() },
-    { value: VaultLockInterval.TWENTY_MINUTES, label: t.vault_lock_20_minutes() },
-    { value: VaultLockInterval.THIRTY_MINUTES, label: t.vault_lock_30_minutes() },
-    { value: VaultLockInterval.ONE_HOUR, label: t.vault_lock_1_hour() },
-    { value: VaultLockInterval.TWO_HOURS, label: t.vault_lock_2_hours() },
-    { value: VaultLockInterval.FOUR_HOURS, label: t.vault_lock_4_hours() },
+  const lockIntervals = $derived<{ value: VaultLockInterval; label: string }[]>([
+    { value: "STARTUP", label: t.vault_lock_startup() },
+    { value: "FIVE_MINUTES", label: t.vault_lock_5_minutes() },
+    { value: "TEN_MINUTES", label: t.vault_lock_10_minutes() },
+    { value: "FIFTEEN_MINUTES", label: t.vault_lock_15_minutes() },
+    { value: "TWENTY_MINUTES", label: t.vault_lock_20_minutes() },
+    { value: "THIRTY_MINUTES", label: t.vault_lock_30_minutes() },
+    { value: "ONE_HOUR", label: t.vault_lock_1_hour() },
+    { value: "TWO_HOURS", label: t.vault_lock_2_hours() },
+    { value: "FOUR_HOURS", label: t.vault_lock_4_hours() },
   ]);
-  const lockInterval = $derived(
-    app.snapshot?.settings.vault_lock_interval ?? VaultLockInterval.STARTUP,
-  );
+  const lockDraft = $derived(settingsDraft.value.vaultLockInterval);
   const lockLabel = $derived(
-    lockIntervals.find((option) => option.value === lockInterval)?.label ?? t.vault_lock_startup(),
+    lockIntervals.find((option) => option.value === lockDraft)?.label ?? t.vault_lock_startup(),
   );
-  let lockBusy = $state(false);
-  let lockButton = $state<HTMLButtonElement | null>(null);
 
   const lockInSeconds = $derived(app.snapshot?.vault.lock_in_seconds ?? null);
   let remaining = $state<number | null>(null);
-  //! Anchored on a deadline, not decremented: a throttled background timer
-  //! cannot desync it, and regaining focus snaps it back immediately.
+  // ! Anchored on a deadline, not decremented, so a throttled background timer cannot desync it.
   let lockAt = 0;
   $effect(() => {
     const seconds = lockInSeconds;
@@ -98,30 +97,9 @@
     return t.vault_lock_remaining_seconds({ seconds: parts.seconds });
   });
 
-  const changeLockInterval = async (interval: VaultLockInterval): Promise<void> => {
-    if (lockBusy || interval === lockInterval) return;
-    lockBusy = true;
-    try {
-      applySnapshot(await invoke("set_vault_lock_interval", { interval }));
-    } catch (cause) {
-      showToast(errorMessage(cause), false);
-    } finally {
-      lockBusy = false;
-    }
-  };
-
-  const pickLockInterval = (event: MouseEvent): void => {
-    const anchor = event.currentTarget;
-    if (lockBusy || !(anchor instanceof HTMLElement)) return;
-    openDropdown({
-      anchor,
-      value: lockInterval,
-      options: lockIntervals,
-      onSelect: (value) => {
-        const interval = Object.values(VaultLockInterval).find((choice) => choice === value);
-        if (interval) void changeLockInterval(interval);
-      },
-    });
+  const selectLockInterval = (value: string): void => {
+    const interval = lockIntervals.find((option) => option.value === value)?.value;
+    if (interval) settingsDraft.set("vaultLockInterval", interval);
   };
 
   const editorTitle = $derived(
@@ -131,14 +109,6 @@
         ? t.vault_password_change_title()
         : t.vault_password_enable_title(),
   );
-
-  $effect(() => {
-    if (!dialog) return;
-    if (editor && !dialog.open) {
-      dialog.showModal();
-      dialog.querySelector("input")?.focus();
-    } else if (!editor && dialog.open) dialog.close();
-  });
 
   const openEditor = (kind: NonNullable<typeof editor>): void => {
     if (busy) return;
@@ -157,8 +127,8 @@
   };
 
   const perform = async (
-    action: () => Promise<SnapshotType>,
-    message: string,
+    action: () => Promise<SnapshotDto>,
+    title: string,
     kind: NonNullable<typeof operation>,
     ready = false,
   ): Promise<boolean> => {
@@ -170,10 +140,10 @@
     try {
       applySnapshot(await action());
       passphrase = "";
-      showToast(message, true);
+      showToast(ToastKind.SUCCESS, title);
       if (ready) onready?.();
       return true;
-    } catch (cause) {
+    } catch (cause: unknown) {
       error = resolveErrorCode(cause);
       return false;
     } finally {
@@ -190,19 +160,19 @@
     fieldError = null;
     if (editor === VaultEditor.DISABLE || editor === VaultEditor.CHANGE) {
       if (!currentPassword) {
-        error = ErrorApiMessage.CURRENT_PASSWORD_REQUIRED;
+        error = "CURRENT_PASSWORD_REQUIRED";
         fieldError = VaultPasswordField.CURRENT;
         return;
       }
     }
     if (editor !== VaultEditor.DISABLE) {
       if (!newPassword.trim()) {
-        error = ErrorApiMessage.VAULT_PASSWORD_REQUIRED;
+        error = "VAULT_PASSWORD_REQUIRED";
         fieldError = VaultPasswordField.NEW;
         return;
       }
       if (newPassword !== repeated) {
-        error = ErrorApiMessage.PASSWORD_MISMATCH;
+        error = "PASSWORD_MISMATCH";
         fieldError = VaultPasswordField.REPEAT;
         return;
       }
@@ -220,10 +190,7 @@
     if (saved) {
       closeEditor();
       if (!removing) onready?.();
-    } else if (
-      error === ErrorApiMessage.WRONG_VAULT_PASSWORD ||
-      error === ErrorApiMessage.CURRENT_PASSWORD_REQUIRED
-    )
+    } else if (error === "WRONG_VAULT_PASSWORD" || error === "CURRENT_PASSWORD_REQUIRED")
       fieldError = VaultPasswordField.CURRENT;
   };
 
@@ -235,6 +202,13 @@
       true,
     );
   };
+
+  const dirty = $derived(
+    vaultEditorDirty(
+      { currentPassword, newPassword, repeated },
+      { disabling: editor === VaultEditor.DISABLE, requiresCurrent: editor === VaultEditor.CHANGE },
+    ),
+  );
 </script>
 
 {#if vault?.error}
@@ -243,7 +217,7 @@
     {errorMessage(vault.error)}
   </p>
   <p class="steamguard-note">
-    {t.vault_restore_hint()}
+    {vaultErrorHint(vault.error)}
   </p>
 {:else if vault?.locked}
   <label class="field-label" for={`${uid}-unlock`}>{t.vault_password_label()}</label>
@@ -310,27 +284,19 @@
   <div class="settings-update-frequency vault-lock">
     <span class="field-label">{t.vault_lock_label()}</span>
     <div class="vault-lock-row">
-      <button
-        class="select-button"
-        type="button"
-        aria-label={t.vault_lock_label()}
-        aria-haspopup="listbox"
-        aria-expanded={dropdown.open && dropdown.anchor === lockButton}
-        aria-busy={lockBusy}
-        bind:this={lockButton}
-        disabled={lockBusy}
-        onclick={pickLockInterval}
-      >
-        <span>{lockBusy ? t.common_saving() : lockLabel}</span>
-        <span class="picker-caret"><AsyncIcon icon={ChevronDown} busy={lockBusy} size={14} /></span>
-      </button>
+      <SelectSetting
+        value={lockDraft}
+        options={lockIntervals}
+        label={lockLabel}
+        ariaLabel={t.vault_lock_label()}
+        disabled={settingsDraft.saving}
+        onselect={selectLockInterval}
+      />
       {#if remainingLabel}<span class="steamguard-note vault-lock-remaining">{remainingLabel}</span
         >{/if}
     </div>
     <p class="steamguard-note">
-      {lockInterval === VaultLockInterval.STARTUP
-        ? t.vault_lock_startup_description()
-        : t.vault_lock_description()}
+      {lockDraft === "STARTUP" ? t.vault_lock_startup_description() : t.vault_lock_description()}
     </p>
   </div>
 {/if}
@@ -353,37 +319,14 @@
   </div>
 {/if}
 
-<dialog
-  bind:this={dialog}
-  class="dialog small vault-password-dialog"
-  role={editor === VaultEditor.DISABLE ? "alertdialog" : "dialog"}
-  aria-labelledby={`${uid}-editor-title`}
-  aria-describedby={editor === VaultEditor.DISABLE ? `${uid}-disable-warning` : undefined}
-  oncancel={(event) => {
-    event.preventDefault();
-    closeEditor();
-  }}
-  onkeydown={(event) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      closeEditor();
-    }
-  }}
-  onclick={(event) => {
-    if (event.target === dialog) {
-      const rect = dialog.getBoundingClientRect();
-      if (
-        event.clientX < rect.left ||
-        event.clientX > rect.right ||
-        event.clientY < rect.top ||
-        event.clientY > rect.bottom
-      )
-        closeEditor();
-    }
-  }}
->
-  {#if editor}
+<AppDialog open={Boolean(editor)} onclose={closeEditor}>
+  <DialogContent
+    showCloseButton={false}
+    class="sm:max-w-md"
+    role={editor === VaultEditor.DISABLE ? "alertdialog" : "dialog"}
+    aria-labelledby={`${uid}-editor-title`}
+    aria-describedby={editor === VaultEditor.DISABLE ? `${uid}-disable-warning` : undefined}
+  >
     <DialogHeader
       id={`${uid}-editor-title`}
       title={editorTitle}
@@ -470,29 +413,43 @@
         />
       {/if}
       <FormError message={error && !fieldError ? errorMessage(error) : ""} />
-      <footer class="dialog-foot">
-        <button class="button" type="button" disabled={busy} onclick={closeEditor}
-          ><X size={15} /> {t.common_cancel()}</button
-        >
-        <button
-          class="button"
-          class:danger={editor === VaultEditor.DISABLE}
-          class:primary={editor !== VaultEditor.DISABLE}
+      {#if !dirty}
+        <footer class="dialog-foot">
+          <button class="button" type="button" disabled={busy} onclick={closeEditor}
+            ><X size={15} /> {t.common_cancel()}</button
+          >
+          <button
+            class="button"
+            class:danger={editor === VaultEditor.DISABLE}
+            class:primary={editor !== VaultEditor.DISABLE}
+            type="submit"
+            disabled={busy}
+            ><AsyncIcon
+              icon={editor === VaultEditor.DISABLE ? ShieldOff : KeyRound}
+              busy={operation === VaultOperation.SAVE}
+              size={15}
+            />{operation === VaultOperation.SAVE
+              ? editor === VaultEditor.DISABLE
+                ? t.common_disabling()
+                : t.common_saving()
+              : editor === VaultEditor.DISABLE
+                ? t.vault_password_disable_action()
+                : t.vault_password_save()}</button
+          >
+        </footer>
+      {:else}
+        <UnsavedBar
           type="submit"
-          disabled={busy}
-          ><AsyncIcon
-            icon={editor === VaultEditor.DISABLE ? ShieldOff : KeyRound}
-            busy={operation === VaultOperation.SAVE}
-            size={15}
-          />{operation === VaultOperation.SAVE
-            ? editor === VaultEditor.DISABLE
-              ? t.common_disabling()
-              : t.common_saving()
-            : editor === VaultEditor.DISABLE
-              ? t.vault_password_disable_action()
-              : t.vault_password_save()}</button
-        >
-      </footer>
+          saving={busy}
+          oncancel={closeEditor}
+          saveIcon={editor === VaultEditor.DISABLE ? ShieldOff : KeyRound}
+          saveLabel={editor === VaultEditor.DISABLE
+            ? t.vault_password_disable_action()
+            : t.vault_password_save()}
+          savingLabel={editor === VaultEditor.DISABLE ? t.common_disabling() : t.common_saving()}
+          danger={editor === VaultEditor.DISABLE}
+        />
+      {/if}
     </form>
-  {/if}
-</dialog>
+  </DialogContent>
+</AppDialog>

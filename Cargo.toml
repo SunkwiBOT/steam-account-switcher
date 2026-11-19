@@ -12,10 +12,13 @@ repository = "https://github.com/SunkwiBOT/steam-account-switcher"
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+rusqlite = { version = "0.43", features = ["bundled"] }
+zeroize = { version = "1", features = ["derive"] }
+ts-rs = { version = "12", features = ["no-serde-warnings"] }
 
 [profile.release]
 codegen-units = 1
 lto = true
 opt-level = "s"
-panic = "abort"
+panic = "unwind"
 strip = true

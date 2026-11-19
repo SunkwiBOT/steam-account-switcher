@@ -1,4 +1,5 @@
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import { fileURLToPath } from "node:url";
@@ -15,7 +16,13 @@ export default defineConfig({
       emitTsDeclarations: true,
     }),
     svelte(),
+    tailwindcss(),
   ],
+  resolve: {
+    alias: {
+      $lib: fileURLToPath(new URL("./ui/src/lib", import.meta.url)),
+    },
+  },
   clearScreen: false,
   server: {
     port: 5173,
@@ -27,7 +34,7 @@ export default defineConfig({
   envPrefix: ["VITE_", "TAURI_ENV_*"],
   build: {
     outDir: "dist",
-    // The 29 locales are compiled into the bundle, which is read from disk, not the network.
+    // ! The 29 locales are compiled into the bundle, read from disk, not the network.
     chunkSizeWarningLimit: 2000,
     emptyOutDir: true,
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome105" : "safari13",

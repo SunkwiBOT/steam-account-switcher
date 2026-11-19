@@ -1,7 +1,3 @@
-/**
- * Splits a countdown into display units. Only the leading unit stays unpadded,
- * so "5 min 00 s" and "1 h 05 min 09 s" keep a stable width while ticking.
- */
 export type VaultCountdownType =
   | { hours: number; minutes: string; seconds: string }
   | { minutes: number; seconds: string }

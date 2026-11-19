@@ -78,7 +78,7 @@ body {
 body {
   background: var(--window);
   color: var(--text);
-  font-family: "Noto Sans", "Inter", "Segoe UI", "DejaVu Sans", sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   overflow: hidden;
   -webkit-user-select: none;

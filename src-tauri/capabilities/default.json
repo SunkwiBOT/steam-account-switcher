@@ -1,14 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Permissions for the main window: core APIs, the opener limited to the project page, and the application commands for everything Steam related.",
+  "description": "Permissions for the main window: core APIs for the application commands covering everything Steam related, file backups and the project page link.",
   "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "dialog:default",
-    {
-      "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://github.com/SunkwiBOT/steam-account-switcher" }]
-    }
-  ]
+  "permissions": ["core:default"]
 }

@@ -1,30 +1,21 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod auth_commands;
-mod base64;
-mod clipboard;
-mod commands;
-mod locale;
-mod log_commands;
-mod logging;
-mod retained_accounts;
-mod settings;
-mod state;
-mod tracking;
-mod tray;
-
 use std::time::Duration;
 
+use steam_account_switcher_lib::{
+    auth_commands, commands, logging, open_url, settings, show_main_window, state, tray,
+};
 use tauri::{AppHandle, Emitter, Manager, WindowEvent};
 
-use crate::state::AppState;
-
-rust_i18n::i18n!("locales", fallback = "en");
+use state::AppState;
 
 fn main() {
+    // ! This flag exits before any window, lock file or database is touched, so a self-update check never collides with the running instance.
+    if std::env::args().any(|arg| arg == commands::updates::SELFTEST_ARG) {
+        std::process::exit(0);
+    }
     prepare_linux_display();
-    // Before the state is built, so a settings or vault file that cannot be read
-    // leaves a trace instead of failing silently.
+    // ! Before the state is built, so a settings or vault file that cannot be read leaves a trace instead of failing silently.
     logging::init(settings::config_dir());
 
     tauri::Builder::default()
@@ -39,23 +30,22 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .manage(AppState::new())
         .manage(commands::updates::PendingUpdate::new())
         .invoke_handler(tauri::generate_handler![
-            log_commands::logs_snapshot,
-            log_commands::logs_open_directory,
-            clipboard::clipboard_write_text,
+            commands::log_commands::logs_snapshot,
+            commands::log_commands::logs_open_directory,
+            commands::clipboard::clipboard_write_text,
             commands::snapshots::snapshot,
             commands::accounts::account_login_name,
             commands::snapshots::playtime_snapshot,
             commands::snapshots::refresh,
-            commands::snapshots::reload_installations,
             commands::preferences::select_installation,
             commands::preferences::set_masked,
             commands::preferences::set_steam_ids_visible,
+            commands::preferences::set_vault_offer_dismissed,
             commands::preferences::update_settings,
-            tracking::set_tracking_enabled,
-            tracking::clear_playtime_data,
+            commands::tracking::set_tracking_enabled,
+            commands::tracking::clear_playtime_data,
             commands::preferences::set_language,
             commands::preferences::set_close_to_tray,
             commands::preferences::set_update_interval,
@@ -74,6 +64,7 @@ fn main() {
             commands::preferences::set_folder_icon,
             commands::preferences::set_window_active,
             commands::preferences::app_info,
+            open_url::open_repository,
             commands::accounts::add_steam_account,
             commands::updates::check_for_update,
             commands::updates::download_update,
@@ -82,18 +73,16 @@ fn main() {
             commands::accounts::switch_account,
             commands::accounts::remove_account,
             commands::accounts::forget_saved_account,
-            commands::accounts::restart_steam,
             commands::accounts::set_rank,
             commands::reports::account_report,
             commands::reports::machine_report,
             commands::preferences::autostart_status,
             commands::preferences::set_autostart,
-            auth_commands::vault::authenticator_status,
-            auth_commands::vault::authenticator_accounts,
             auth_commands::vault::authenticator_unlock,
             auth_commands::vault::authenticator_lock,
             auth_commands::vault::authenticator_set_passphrase,
             auth_commands::guard::steam_guard_code,
+            auth_commands::guard::steam_guard_time_offset,
             auth_commands::guard::steam_guard_revocation_code,
             auth_commands::guard::steam_guard_import,
             auth_commands::backup::steam_guard_export_backup,
@@ -113,10 +102,15 @@ fn main() {
             auth_commands::link::steam_guard_link_cancel,
         ])
         .setup(|app| {
+            app.manage(AppState::new());
             let previous_panic_hook = std::panic::take_hook();
             std::panic::set_hook(Box::new(move |info| {
-                // ! Panic payloads can contain secrets: never write them to the log.
-                logging::write("runtime: panic");
+                // ! Panic payloads can contain secrets: only where it happened is logged.
+                let location = info
+                    .location()
+                    .map(|location| location.to_string())
+                    .unwrap_or_else(|| "unknown".to_string());
+                logging::write(&format!("runtime: panic location={location}"));
                 previous_panic_hook(info);
             }));
             logging::write(&format!(
@@ -153,6 +147,10 @@ fn main() {
                     vault.count,
                     vault.error.is_some()
                 ));
+                if let Some(backup) = state.take_corrupt_db_backup() {
+                    let locale = state.lock().settings.data().language.resolved();
+                    state::show_database_recovered_notice(app.handle(), locale, &backup);
+                }
             }
             if let Some(window) = app.get_webview_window("main") {
                 configure_window(&window);
@@ -168,20 +166,23 @@ fn main() {
                 tray::refresh_menu(app.handle());
             }
             start_playtime_loop(app.handle().clone());
+            start_clock_offset_loop(app.handle().clone());
+            commands::updates::cleanup_stale_backup();
             Ok(())
         })
         .on_window_event(|window, event| {
             match event {
                 WindowEvent::CloseRequested { api, .. } => {
-                    let state = window.app_handle().state::<AppState>();
+                    let app = window.app_handle();
+                    let state = app.state::<AppState>();
                     let close_to_tray = state.lock().settings.data().close_to_tray;
-                    // Hiding without a tray icon would leave the app unreachable.
+                    // ! Hiding without a tray icon would leave the app unreachable.
                     if state.tray_available() && close_to_tray {
                         api.prevent_close();
                         state.set_window_active(false);
                         let _ = window.hide();
                     } else {
-                        window.app_handle().exit(0);
+                        state::request_close(app, api);
                     }
                 }
                 WindowEvent::Focused(focused) => {
@@ -196,6 +197,13 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("failed to build the Steam Account Switcher window")
         .run(|app_handle, event| {
+            // ! All windows closed without a tray icon: the same guard as the close button and the tray Quit item applies.
+            if let tauri::RunEvent::ExitRequested { api, .. } = &event {
+                if state::exit_blocked(app_handle) {
+                    api.prevent_exit();
+                    return;
+                }
+            }
             if matches!(
                 event,
                 tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
@@ -208,9 +216,7 @@ fn main() {
         });
 }
 
-/// ! Sets the icon, the X11 `WM_CLASS` and the Wayland `app_id`: without them
-/// the compositor cannot pair the window with the installed `.desktop` entry
-/// and shows a generic placeholder icon.
+// ! Without the icon, X11 `WM_CLASS` and Wayland `app_id`, the compositor cannot pair the window with the installed `.desktop` entry.
 fn configure_window(window: &tauri::WebviewWindow) {
     if let Ok(icon) = tauri::image::Image::from_bytes(include_bytes!("../icons/128x128.png")) {
         let _ = window.set_icon(icon);
@@ -220,15 +226,10 @@ fn configure_window(window: &tauri::WebviewWindow) {
     gtk::Window::set_default_icon_name("accountswitcher");
 }
 
-/// ! WebKitGTK's DMABUF renderer fails on Wayland with the NVIDIA driver, so it
-/// is disabled in that case only; GTK still picks Wayland or X11 on its own.
+// ! WebKitGTK's DMABUF renderer fails on Wayland with the NVIDIA driver, so it is disabled in that case only.
 #[cfg(target_os = "linux")]
 fn prepare_linux_display() {
-    // ! Before GTK starts: the Wayland app id is the program name, and KWin
-    // looks up "<app id>.desktop" for the window icon. The bundler names that
-    // entry after the product name, so the two must be identical. The icon
-    // name stays "accountswitcher": a "steam-" prefix would resolve to the
-    // Steam client's icon in some themes.
+    // ! Before GTK starts: KWin looks up `<app id>.desktop` for the window icon and the bundler names that entry after the product name; the icon name stays `accountswitcher` because a `steam-` prefix resolves to the Steam client's icon in some themes.
     glib::set_prgname(Some("Steam Account Switcher"));
     glib::set_application_name("Steam Account Switcher");
 
@@ -249,32 +250,6 @@ fn prepare_linux_display() {
 #[cfg(not(target_os = "linux"))]
 fn prepare_linux_display() {}
 
-pub fn show_main_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
-
-        // ! Wayland refuses focus changes from an unfocused application, so a
-        // tray click would only raise the window: present() asks properly.
-        #[cfg(target_os = "linux")]
-        {
-            if let Ok(gtk_window) = window.gtk_window() {
-                use gtk::prelude::GtkWindowExt;
-                gtk_window.present();
-            }
-        }
-
-        let _ = window.set_always_on_top(true);
-        let handle = window.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(700));
-            let _ = handle.set_always_on_top(false);
-            let _ = handle.set_focus();
-        });
-    }
-}
-
 fn start_playtime_loop(app: AppHandle) {
     std::thread::spawn(move || {
         let mut tick: u64 = 0;
@@ -284,7 +259,7 @@ fn start_playtime_loop(app: AppHandle) {
 
             let state = app.state::<AppState>();
 
-            // Before the idle skip so the vault lock deadline stays exact in the background.
+            // ! Before the idle skip so the vault lock deadline stays exact in the background.
             if state.lock_vault_if_due() {
                 let _ = app.emit("vault-locked", ());
             }
@@ -312,8 +287,7 @@ fn start_playtime_loop(app: AppHandle) {
                 let _ = app.emit("playtime-tick", changed);
             }
 
-            // Steam can add or switch accounts behind our back; re-read the
-            // client files every fifteen seconds (a minute when idle).
+            // ! Steam can add or switch accounts behind our back; re-read the client files every fifteen seconds (a minute when idle).
             let refresh_due = if active {
                 tick.is_multiple_of(15)
             } else {
@@ -325,5 +299,31 @@ fn start_playtime_loop(app: AppHandle) {
                 let _ = app.emit("accounts-changed", ());
             }
         }
+    });
+}
+
+// ! Re-measured every `CLOCK_OFFSET_TTL`: a session running for hours must not keep trusting a stale measurement.
+const CLOCK_OFFSET_TTL: Duration = Duration::from_secs(15 * 60);
+const CLOCK_DRIFT_THRESHOLD_SECONDS: i64 = 60;
+
+fn start_clock_offset_loop(app: AppHandle) {
+    std::thread::spawn(move || loop {
+        match steam_core::authenticator::measure_time_offset() {
+            Ok(offset) => {
+                let authenticator = app.state::<AppState>().authenticator();
+                authenticator
+                    .lock()
+                    .unwrap_or_else(|error| error.into_inner())
+                    .set_time_offset(offset);
+                logging::write(&format!("clock: steam_offset_seconds={offset}"));
+                if offset.abs() > CLOCK_DRIFT_THRESHOLD_SECONDS {
+                    let _ = app.emit("clock-drift-warning", offset);
+                }
+            }
+            Err(error) => {
+                logging::write(&format!("clock: steam_offset_unavailable code={error}"));
+            }
+        }
+        std::thread::sleep(CLOCK_OFFSET_TTL);
     });
 }

@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use crate::accounts::read_vdf;
 use crate::model::{expand_home, SteamInstallation};
 
-/// Nothing is downloaded: unknown games simply keep their app id.
+// ! Nothing is downloaded: unknown games simply keep their app id.
 #[derive(Debug)]
 pub struct SteamGameCatalog {
     installation: SteamInstallation,
@@ -58,8 +58,10 @@ impl SteamGameCatalog {
 
         let name = self.read_name(app_id).unwrap_or_default();
 
-        if let Ok(mut cache) = self.cache.lock() {
-            cache.insert(app_id.to_string(), name.clone());
+        if !name.is_empty() {
+            if let Ok(mut cache) = self.cache.lock() {
+                cache.insert(app_id.to_string(), name.clone());
+            }
         }
 
         name
@@ -81,7 +83,9 @@ impl SteamGameCatalog {
                 continue;
             }
 
-            let data = read_vdf(&manifest).ok()?;
+            let Ok(data) = read_vdf(&manifest) else {
+                continue;
+            };
             let name = data
                 .get_object("AppState")
                 .and_then(|state| state.get_str("name"))

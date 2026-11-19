@@ -4,17 +4,17 @@
   import { t } from "../../lib/i18n/i18n.svelte";
 
   import CopyButton from "../ui/CopyButton.svelte";
-  import { copySteamGuardCode } from "../../lib/actions/actions.svelte";
+  import { copySteamGuardCode } from "../../lib/actions/account-copy.svelte";
   import { app } from "../../lib/state/state.svelte";
   import { invoke } from "../../lib/api/tauri";
-  import type { CodeInfoType } from "../../lib/types";
+  import type { CodeInfo } from "../../lib/bindings/CodeInfo";
 
   type SteamGuardCodePropsType = { steamId: string };
 
   let { steamId }: SteamGuardCodePropsType = $props();
   const selectedId = $derived(steamId);
   const vaultLocked = $derived(app.snapshot?.vault.locked === true);
-  let code = $state<CodeInfoType | null>(null);
+  let code = $state<CodeInfo | null>(null);
   let error = $state("");
   let ready = $state(false);
   let remaining = $state(0);
@@ -42,15 +42,13 @@
       try {
         const next = await invoke("steam_guard_code", { steamId: id });
         if (!stopped) {
-          expiresAt = next.valid_until
-            ? next.valid_until * 1000
-            : Date.now() + next.seconds_remaining * 1000;
+          expiresAt = Date.now() + next.seconds_remaining * 1000;
           remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
           code = next;
           error = "";
           ready = remaining > 0;
         }
-      } catch (cause) {
+      } catch (cause: unknown) {
         if (!stopped) {
           error = resolveErrorCode(cause);
           retryAt = Date.now() + 3000;
@@ -64,7 +62,6 @@
       if (remaining === 0 && Date.now() >= retryAt) void refresh();
     };
     void refresh();
-    // Only the countdown ticks in the UI; Rust generates a code at expiry or resume.
     const timer = setInterval(tick, 250);
     return () => {
       stopped = true;

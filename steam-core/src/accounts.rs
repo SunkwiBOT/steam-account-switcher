@@ -5,9 +5,11 @@ use std::sync::Arc;
 
 use crate::autologin;
 use crate::error::{Result, SteamError};
-use crate::model::{parse_timestamp, parse_vdf_bool, resolve, SteamAccount, SteamInstallation};
+use crate::model::{
+    is_selected_account, parse_timestamp, parse_vdf_bool, resolve, SteamAccount, SteamInstallation,
+};
 use crate::processes::{ProcessControl, SystemProcesses};
-use crate::util::{now_unix, write_atomic};
+use crate::util::{now_unix, write_atomic, WriteMode};
 use crate::vdf::{self, VdfObject};
 
 const ACCOUNT_KEYS: [&str; 5] = [
@@ -20,6 +22,14 @@ const ACCOUNT_KEYS: [&str; 5] = [
 
 const AVATAR_SUFFIXES: [&str; 4] = [".png", ".jpg", ".jpeg", ".webp"];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, ts_rs::TS)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SwitchOutcomeKind {
+    Switched,
+    AlreadyActive,
+    Started,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SwitchOutcome {
     Switched { account_name: String },
@@ -28,20 +38,20 @@ pub enum SwitchOutcome {
 }
 
 impl SwitchOutcome {
-    pub fn account_name(&self) -> &str {
-        match self {
-            SwitchOutcome::Switched { account_name }
-            | SwitchOutcome::AlreadyActive { account_name }
-            | SwitchOutcome::Started { account_name } => account_name,
-        }
-    }
-
     pub fn already_active(&self) -> bool {
         matches!(self, SwitchOutcome::AlreadyActive { .. })
     }
 
     pub fn started(&self) -> bool {
         matches!(self, SwitchOutcome::Started { .. })
+    }
+
+    pub fn kind(&self) -> SwitchOutcomeKind {
+        match self {
+            SwitchOutcome::Switched { .. } => SwitchOutcomeKind::Switched,
+            SwitchOutcome::AlreadyActive { .. } => SwitchOutcomeKind::AlreadyActive,
+            SwitchOutcome::Started { .. } => SwitchOutcomeKind::Started,
+        }
     }
 }
 
@@ -65,18 +75,6 @@ impl SteamManager {
         Self {
             installation,
             processes: Arc::new(SystemProcesses),
-        }
-    }
-
-    /// Manager with an injected process controller; tests use an inert one so a
-    /// unit test can never stop the Steam client of the machine running it.
-    pub fn with_processes(
-        installation: SteamInstallation,
-        processes: Arc<dyn ProcessControl>,
-    ) -> Self {
-        Self {
-            installation,
-            processes,
         }
     }
 
@@ -125,22 +123,31 @@ impl SteamManager {
         Ok(accounts)
     }
 
-    pub fn find_account(&self, identifier: &str) -> Result<Option<SteamAccount>> {
-        let lowered = identifier.to_lowercase();
-        Ok(self.list_accounts()?.into_iter().find(|account| {
-            account.steam_id == identifier
-                || account.account_name.to_lowercase() == lowered
-                || account.persona_name.to_lowercase() == lowered
-        }))
+    pub fn find_by_steam_id(&self, steam_id: &str) -> Result<Option<SteamAccount>> {
+        Ok(self
+            .list_accounts()?
+            .into_iter()
+            .find(|account| account.steam_id == steam_id))
     }
 
     pub fn auto_login_user(&self) -> Result<String> {
         autologin::read_auto_login(&self.installation)
     }
 
-    /// The account Steam is really logged into: `loginusers.vdf` is written by
-    /// Steam itself, the auto-login value is only this application's last write.
-    pub fn current_account(&self) -> Result<Option<SteamAccount>> {
+    // ! `AutoLoginUser` and the `MostRecent` flag must agree, or a switch that terminated Steam mid-write would show a different answer depending which source is asked.
+    pub fn selected_account(&self) -> Result<Option<SteamAccount>> {
+        let auto_login_user = self.auto_login_user()?;
+        if auto_login_user.is_empty() {
+            return Ok(None);
+        }
+        Ok(self
+            .list_accounts()?
+            .into_iter()
+            .find(|account| is_selected_account(account, &auto_login_user)))
+    }
+
+    // ! For playtime attribution only: prefers the `MostRecent` flag, then the newest `Timestamp`, never the switch target (see `selected_account`).
+    pub fn most_recently_played_account(&self) -> Result<Option<SteamAccount>> {
         let accounts = self.list_accounts()?;
         if let Some(account) = accounts.iter().find(|account| account.most_recent) {
             return Ok(Some(account.clone()));
@@ -154,9 +161,7 @@ impl SteamManager {
         autologin::write_auto_login(&self.installation, account_name)
     }
 
-    /// Writes the auto-login account and reads it back: a write that silently
-    /// does not stick would otherwise surface as Steam logging into the wrong
-    /// account.
+    // ! Writes the auto-login account and reads it back: a write that silently does not stick would otherwise surface as Steam logging into the wrong account.
     pub fn set_auto_login_user_verified(&self, account_name: &str) -> Result<()> {
         self.set_auto_login_user(account_name)?;
         let stored = self.auto_login_user()?;
@@ -174,8 +179,7 @@ impl SteamManager {
         ];
 
         let mut names = vec![steam_id.to_string()];
-        // ! The login name comes from a file Steam rewrites: never join it as a
-        // ! path unless it is a plain file name.
+        // ! The login name comes from a file Steam rewrites: never join it as a path unless it is a plain file name.
         if is_plain_file_name(account_name) {
             names.push(account_name.to_string());
         }
@@ -234,11 +238,10 @@ impl SteamManager {
         fallback
     }
 
-    pub fn switch_account(&self, identifier: &str, restart: bool) -> Result<SwitchOutcome> {
-        // Writing an unknown identifier would put a name Steam never saw into
-        // AutoLoginUser, so an unknown account is refused instead.
+    pub fn switch_account(&self, steam_id: &str) -> Result<SwitchOutcome> {
+        // ! Writing an unknown identifier would put a name Steam never saw into AutoLoginUser, so an unknown account is refused instead.
         let account = self
-            .find_account(identifier)?
+            .find_by_steam_id(steam_id)?
             .ok_or_else(|| SteamError::config(ErrorCode::AccountUnavailable))?;
         let account_name = account.account_name.clone();
 
@@ -246,42 +249,34 @@ impl SteamManager {
             return Err(SteamError::config(ErrorCode::AccountUnavailable));
         }
 
-        if restart {
-            let running = self.processes.is_running();
-            let is_target = self
-                .current_account()?
-                .map(|current| current.account_name.eq_ignore_ascii_case(&account_name))
-                .unwrap_or(false);
+        let running = self.processes.is_running(&self.installation);
+        let is_selected = self
+            .selected_account()?
+            .is_some_and(|selected| selected.steam_id == account.steam_id);
 
-            if is_target {
-                if running {
-                    // Restarting would only cost the user their running game.
-                    return Ok(SwitchOutcome::AlreadyActive { account_name });
-                }
-                self.processes.launch(&self.installation)?;
-                return Ok(SwitchOutcome::Started { account_name });
-            }
+        if is_selected && running {
+            return Ok(SwitchOutcome::AlreadyActive { account_name });
         }
 
-        if restart {
+        if running {
             self.processes
                 .terminate(&self.installation, std::time::Duration::from_secs(30))?;
         }
 
         self.set_auto_login_user_verified(&account_name)?;
         self.prepare_loginusers_auto_login(&account.steam_id)?;
+        self.processes.launch(&self.installation)?;
 
-        if restart {
-            self.processes.launch(&self.installation)?;
-        }
-
-        Ok(SwitchOutcome::Switched { account_name })
+        Ok(if is_selected {
+            SwitchOutcome::Started { account_name }
+        } else {
+            SwitchOutcome::Switched { account_name }
+        })
     }
 
-    /// Opens Steam at its login window so the user can sign in: no credential
-    /// ever reaches this application.
+    // ! Opens Steam at its login window so the user can sign in: no credential ever reaches this application.
     pub fn add_account(&self) -> Result<()> {
-        if self.processes.is_running() {
+        if self.processes.is_running(&self.installation) {
             self.processes
                 .terminate(&self.installation, std::time::Duration::from_secs(30))?;
         }
@@ -334,14 +329,13 @@ impl SteamManager {
         self.write_loginusers(&data)
     }
 
-    pub fn remove_account(&self, identifier: &str, cleanup_userdata: bool) -> Result<()> {
+    pub fn remove_account(&self, steam_id: &str, cleanup_userdata: bool) -> Result<()> {
         let account = self
-            .find_account(identifier)?
+            .find_by_steam_id(steam_id)?
             .ok_or_else(|| SteamError::config(ErrorCode::AccountUnavailable))?;
 
-        // ! Steam keeps loginusers.vdf in memory and rewrites it on exit, so
-        // ! editing it while the client runs silently resurrects the entry.
-        if self.processes.is_running() {
+        // ! Steam keeps loginusers.vdf in memory and rewrites it on exit, so editing it while the client runs silently resurrects the entry.
+        if self.processes.is_running(&self.installation) {
             self.processes
                 .terminate(&self.installation, std::time::Duration::from_secs(30))?;
         }
@@ -369,10 +363,7 @@ impl SteamManager {
     }
 
     pub fn remove_userdata(&self, steam_id: &str) -> Result<()> {
-        // ! Steam's userdata folders use the low 32-bit account ID while
-        // ! loginusers.vdf keys hold the 64-bit Steam ID. An ID that does not
-        // ! convert cleanly, or a target outside userdata, is refused: this
-        // ! deletes a directory tree.
+        // ! Userdata folders use the low 32-bit account ID while `loginusers.vdf` keys hold the 64-bit Steam ID; an ID that does not convert, or resolves outside userdata, is refused before this deletes a directory tree.
         const INDIVIDUAL_BASE: u64 = 76_561_197_960_265_728;
         let account_id = steam_id
             .parse::<u64>()
@@ -398,24 +389,8 @@ impl SteamManager {
         Ok(())
     }
 
-    pub fn restart_steam(&self) -> Result<()> {
-        self.processes
-            .terminate(&self.installation, std::time::Duration::from_secs(30))?;
-        self.processes.launch(&self.installation)
-    }
-
     pub fn is_steam_running(&self) -> bool {
-        self.processes.is_running()
-    }
-
-    pub fn metadata_path(&self) -> PathBuf {
-        self.installation
-            .config_dir
-            .join("steam-account-switcher-metadata.json")
-    }
-
-    pub fn gameprocess_log_path(&self) -> PathBuf {
-        self.installation.root.join("logs/gameprocess_log.txt")
+        self.processes.is_running(&self.installation)
     }
 
     fn read_loginusers(&self) -> Result<VdfObject> {
@@ -437,6 +412,7 @@ impl SteamManager {
             return Ok(());
         };
 
+        // ! Steam nests cached sign-in data (SSFN hash, refresh token) under this same `Accounts\<name>` key, so removing the subtree already clears it.
         if accounts.remove(account_name).is_some() {
             write_vdf(&path, &data)?;
         }
@@ -464,7 +440,11 @@ pub fn read_vdf(path: &Path) -> Result<VdfObject> {
 }
 
 pub fn write_vdf(path: &Path, data: &VdfObject) -> Result<()> {
-    write_atomic(path, &vdf::dump(data))
+    let text = vdf::dump_verified(data).map_err(|error| SteamError::Vdf {
+        path: path.display().to_string(),
+        message: error.message,
+    })?;
+    write_atomic(path, &text, WriteMode::PreserveExisting)
         .map_err(|error| SteamError::io(format!("Unable to write {}", path.display()), error))
 }
 

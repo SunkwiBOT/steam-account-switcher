@@ -1,6 +1,7 @@
 import { errorMessage } from "../errors/errors.svelte";
 import { t, rich } from "../i18n/i18n.svelte";
 import { showToast } from "./state.svelte";
+import { ToastKind } from "./state.constants";
 import { invoke } from "../api/tauri";
 import type { ToastAccountType } from "../types";
 
@@ -24,10 +25,16 @@ export const copyValue = async (
         timers.delete(key);
       }, 2000),
     );
-    showToast(rich(t.clipboard_copy_success, { value: label }), true, account);
+    showToast(ToastKind.SUCCESS, t.toast_copied_title(), {
+      description: rich(t.clipboard_copy_success, { value: label }),
+      account,
+    });
     return true;
-  } catch (cause) {
-    showToast(errorMessage(cause), false, account);
+  } catch (cause: unknown) {
+    showToast(ToastKind.ERROR, t.toast_error_title(), {
+      description: errorMessage(cause),
+      account,
+    });
     return false;
   }
 };

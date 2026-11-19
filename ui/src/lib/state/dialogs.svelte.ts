@@ -1,7 +1,12 @@
 import { t } from "../i18n/i18n.svelte";
 import { ConfirmKind } from "./dialogs.constants";
+import { errorMessage } from "../errors/errors.svelte";
 
 import type { MessageType } from "../i18n/messages";
+
+export type ConfirmAnswerType = {
+  cleanup: boolean;
+};
 
 export type ConfirmStateType = {
   open: boolean;
@@ -10,9 +15,12 @@ export type ConfirmStateType = {
   checkboxLabel: string;
   checkboxRequired: boolean;
   confirmLabel: string;
+  busyLabel: string;
   danger: boolean;
   steamId: string | null;
   kind: ConfirmKind;
+  busy: boolean;
+  error: string;
 };
 
 export const confirmDialog: ConfirmStateType = $state({
@@ -22,16 +30,17 @@ export const confirmDialog: ConfirmStateType = $state({
   checkboxLabel: "",
   checkboxRequired: false,
   confirmLabel: t.common_yes(),
+  busyLabel: "",
   danger: false,
   steamId: null,
   kind: ConfirmKind.CONFIRM,
+  busy: false,
+  error: "",
 });
 
-export type ConfirmAnswerType = {
-  cleanup: boolean;
-};
-
-let confirmResolve: ((value: ConfirmAnswerType | null) => void) | null = null;
+let confirmAction: ((answer: ConfirmAnswerType) => Promise<boolean>) | null = null;
+let confirmCancel: (() => void) | null = null;
+let confirmGeneration = 0;
 
 export const askConfirm = ({
   title,
@@ -39,19 +48,25 @@ export const askConfirm = ({
   checkboxLabel = "",
   checkboxRequired = false,
   confirmLabel = t.common_yes(),
+  busyLabel = t.common_saving(),
   danger = false,
   steamId = null,
   kind = ConfirmKind.CONFIRM,
+  action,
+  onCancel = null,
 }: {
   title: string;
   text: MessageType;
   checkboxLabel?: string;
   checkboxRequired?: boolean;
   confirmLabel?: string;
+  busyLabel?: string;
   danger?: boolean;
   steamId?: string | null;
   kind?: ConfirmStateType["kind"];
-}): Promise<ConfirmAnswerType | null> => {
+  action: (answer: ConfirmAnswerType) => Promise<boolean>;
+  onCancel?: (() => void) | null;
+}): void => {
   Object.assign(confirmDialog, {
     open: true,
     title,
@@ -59,20 +74,46 @@ export const askConfirm = ({
     checkboxLabel,
     checkboxRequired,
     confirmLabel,
+    busyLabel,
     danger,
     steamId,
     kind,
+    busy: false,
+    error: "",
   });
-  return new Promise((resolve) => {
-    confirmResolve = resolve;
-  });
+  confirmAction = action;
+  confirmCancel = onCancel;
+  confirmGeneration += 1;
 };
 
-export const answerConfirm = (value: ConfirmAnswerType | null): void => {
+export const runConfirmAction = async (answer: ConfirmAnswerType): Promise<void> => {
+  if (confirmDialog.busy || !confirmAction) return;
+  const action = confirmAction;
+  const generation = confirmGeneration;
+  confirmDialog.busy = true;
+  confirmDialog.error = "";
+  try {
+    const ok = await action(answer);
+    if (ok && generation === confirmGeneration) {
+      confirmDialog.open = false;
+      confirmAction = null;
+    }
+  } catch (cause: unknown) {
+    confirmDialog.error = errorMessage(cause);
+  } finally {
+    if (generation === confirmGeneration) {
+      confirmDialog.busy = false;
+    }
+  }
+};
+
+export const cancelConfirm = (): void => {
+  if (confirmDialog.busy) return;
   confirmDialog.open = false;
-  const resolve = confirmResolve;
-  confirmResolve = null;
-  resolve?.(value);
+  confirmAction = null;
+  const onCancel = confirmCancel;
+  confirmCancel = null;
+  onCancel?.();
 };
 
 export type FolderDialogStateType = {

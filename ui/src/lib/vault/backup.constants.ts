@@ -14,5 +14,3 @@ export enum BackupField {
   REPEAT = "repeat",
   GENERAL = "general",
 }
-
-export const BACKUP_EXTENSION = "steamguard";

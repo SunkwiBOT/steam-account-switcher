@@ -42,8 +42,6 @@ pub fn submit_login_code(login: &mut Login, kind: GuardKind, code: &str) -> Resu
     Ok(())
 }
 
-/// Waits for Steam to hand out the tokens. Blocks until the phone approves or
-/// the code is accepted.
 pub fn finish_login(login: &mut Login) -> Result<Tokens, AuthError> {
     login.poll_until_tokens().map_err(steam_error)
 }

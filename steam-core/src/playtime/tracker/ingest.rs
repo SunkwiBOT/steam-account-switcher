@@ -1,11 +1,10 @@
-//! Reading Steam's content log: locating the cursor, detecting rotation and
-//! games already running when tracking starts, and pulling in new lines.
+// ! Reading Steam's content log: locating the cursor, detecting rotation and games already running when tracking starts, and pulling in new lines.
 
 use super::{log_cursor, PlaytimeTracker};
 use crate::playtime::log::{
     file_identity, read_head, recent_game_events, EventKind, GameProcessEvent,
 };
-use crate::playtime::READ_CHUNK_SIZE;
+use crate::playtime::model::TrackingMode;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -30,8 +29,7 @@ impl PlaytimeTracker {
         }
     }
 
-    /// Scans the tail of the log for games that are already running so a
-    /// launch that happened before the app started is still counted.
+    // ! Scans the tail of the log for games that are already running so a launch that happened before the app started is still counted.
     pub(super) fn discover_games_already_running(&mut self) {
         let Ok(events) = recent_game_events(&self.log_path) else {
             return;
@@ -59,7 +57,7 @@ impl PlaytimeTracker {
         let now = (self.clock)();
         for event in candidates.into_values() {
             if self.probe_event_process(&event).running {
-                self.start_session(&event, now, now, "partial");
+                self.start_session(&event, now, now, TrackingMode::Partial);
             }
         }
     }
@@ -76,8 +74,7 @@ impl PlaytimeTracker {
             return (Vec::new(), false);
         };
         let (device, inode, modified) = file_identity(&metadata);
-        // ! A rotated log can reuse the device and inode (Windows always reports
-        // ! 0), so the head fingerprint is the only reliable rotation check.
+        // ! A rotated log can reuse the device and inode (Windows always reports 0), so the head fingerprint is the only reliable rotation check.
         let head_matches = head.starts_with(&self.state.source.head);
         let same_file = self.state.source.known
             && head_matches
@@ -97,12 +94,11 @@ impl PlaytimeTracker {
             return (Vec::new(), false);
         }
 
-        let mut buffer = vec![0_u8; READ_CHUNK_SIZE as usize];
-        let read = match handle.read(&mut buffer) {
+        let read = match handle.read(&mut self.read_buffer) {
             Ok(read) => read,
             Err(_) => return (Vec::new(), false),
         };
-        let bytes = &buffer[..read];
+        let bytes = &self.read_buffer[..read];
 
         let mut source_changed = !same_file;
         let complete = match bytes.iter().rposition(|byte| *byte == b'\n') {

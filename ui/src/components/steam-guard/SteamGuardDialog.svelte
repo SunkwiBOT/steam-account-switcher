@@ -1,7 +1,8 @@
 <script lang="ts">
   import DialogHeader from "../dialogs/DialogHeader.svelte";
-  import { focusTrap } from "../../lib/actions/focus-trap";
-  import { errorMessage } from "../../lib/errors/errors.svelte";
+  import AppDialog from "../dialogs/AppDialog.svelte";
+  import { DialogContent } from "$lib/components/ui/dialog/index.js";
+  import { errorMessage, vaultErrorHint } from "../../lib/errors/errors.svelte";
   import { t, rich } from "../../lib/i18n/i18n.svelte";
 
   import {
@@ -29,18 +30,12 @@
   const uid = $props.id();
 </script>
 
-{#if app.steamGuardOpen && entry}
-  <div class="modal" inert={app.vaultOpen}>
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="modal-backdrop" onclick={controller.close}></div>
-    <div
-      class="dialog steamguard-dialog"
-      role="dialog"
-      aria-modal="true"
+{#if entry}
+  <AppDialog open={app.steamGuardOpen} onclose={controller.close}>
+    <DialogContent
+      showCloseButton={false}
+      class="sm:max-w-2xl max-h-[88vh] flex flex-col overflow-hidden"
       aria-labelledby={`${uid}-title`}
-      tabindex="-1"
-      use:focusTrap={{ onEscape: controller.close }}
     >
       <DialogHeader
         id={`${uid}-title`}
@@ -66,7 +61,7 @@
           </p>
           <p class="steamguard-error">
             {errorMessage(controller.vault.error)}
-            {t.vault_restore_hint()}
+            {vaultErrorHint(controller.vault.error)}
           </p>
         {:else if controller.vault.locked}
           <section class="steamguard-card">
@@ -157,6 +152,6 @@
           onclick={controller.close}><X size={15} /> {t.common_close()}</button
         >
       </footer>
-    </div>
-  </div>
+    </DialogContent>
+  </AppDialog>
 {/if}

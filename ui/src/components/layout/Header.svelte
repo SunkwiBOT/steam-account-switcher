@@ -5,10 +5,12 @@
   import { formatSeconds } from "../../lib/api/api";
   import { UpdateStage } from "../../lib/state/state.constants";
   import AsyncIcon from "../ui/AsyncIcon.svelte";
-  import { addAccount, openRepository, updateButtonLabel } from "../../lib/actions/actions.svelte";
-  import { openDropdown } from "../../lib/state/menus.svelte";
+  import { addAccount } from "../../lib/actions/account-lifecycle.svelte";
+  import { openRepository } from "../../lib/actions/repository.svelte";
+  import { updateButtonLabel } from "../../lib/actions/updates.svelte";
+  import SelectSetting from "../ui/SelectSetting.svelte";
   import { app, run, trackingEnabled } from "../../lib/state/state.svelte";
-  import { ChevronDown, Download, Plus, Power, RefreshCw, Search, Settings } from "@lucide/svelte";
+  import { Download, Plus, Power, RefreshCw, Search, Settings } from "@lucide/svelte";
 
   let refreshing = $state(false);
 
@@ -29,18 +31,8 @@
     }
   };
 
-  const openInstallations = (event: MouseEvent): void => {
-    const anchor = event.currentTarget;
-    if (!(anchor instanceof HTMLElement)) return;
-    openDropdown({
-      anchor,
-      value: String(snapshot?.selected ?? 0),
-      options: installations.map((entry) => ({
-        value: String(entry.index),
-        label: installationLabel(entry),
-      })),
-      onSelect: (value) => run("select_installation", { index: Number(value) }),
-    });
+  const selectInstallation = (value: string): void => {
+    void run("select_installation", { index: Number(value) });
   };
 </script>
 
@@ -121,15 +113,16 @@
 
   <div class="header-right">
     {#if snapshot?.settings?.show_installation_selector !== false}
-      <button
-        class="select-button"
-        type="button"
-        aria-haspopup="listbox"
-        onclick={openInstallations}
-      >
-        <span>{selected ? installationLabel(selected) : t.installation_label()}</span>
-        <span class="picker-caret"><ChevronDown size={14} /></span>
-      </button>
+      <SelectSetting
+        value={String(snapshot?.selected ?? 0)}
+        options={installations.map((entry) => ({
+          value: String(entry.index),
+          label: installationLabel(entry),
+        }))}
+        label={selected ? installationLabel(selected) : t.installation_label()}
+        ariaLabel={t.installation_label()}
+        onselect={selectInstallation}
+      />
     {/if}
     <label class="search-wrap">
       <span class="search-icon"><Search size={16} /></span>

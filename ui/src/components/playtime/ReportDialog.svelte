@@ -1,6 +1,7 @@
 <script lang="ts">
   import DialogHeader from "../dialogs/DialogHeader.svelte";
-  import { focusTrap } from "../../lib/actions/focus-trap";
+  import AppDialog from "../dialogs/AppDialog.svelte";
+  import { DialogContent } from "$lib/components/ui/dialog/index.js";
   import { t, rich, formatDate } from "../../lib/i18n/i18n.svelte";
 
   import {
@@ -49,20 +50,28 @@
     app.report = null;
   };
   const uid = $props.id();
+
+  const tabButtonClasses = (active: boolean): string =>
+    active
+      ? "min-w-[96px] border border-b-0 border-[var(--border)] bg-[var(--panel)] px-[18px] py-2 text-[13px] font-bold text-[var(--accent)]"
+      : "min-w-[96px] border border-b-0 border-[var(--border)] bg-[var(--base-alt)] px-[18px] py-2 text-[13px] text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--text-bright)]";
+
+  const rangeButtonClasses = (active: boolean, first: boolean, last: boolean): string => {
+    const radius = first ? "rounded-l-md" : last ? "rounded-r-md" : "";
+    const rightBorder = last ? "border-r" : "border-r-0";
+    const base = `border px-3 py-[5px] text-[13px] ${radius} ${rightBorder}`;
+    return active
+      ? `${base} border-[var(--accent)] bg-[var(--button)] font-bold text-[var(--accent)]`
+      : `${base} border-[var(--border-strong)] bg-[var(--base-alt)] text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--text-bright)]`;
+  };
 </script>
 
 {#if report && trackingEnabled()}
-  <div class="modal">
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="modal-backdrop" onclick={close}></div>
-    <div
-      class="dialog"
-      role="dialog"
-      aria-modal="true"
+  <AppDialog open={true} onclose={close}>
+    <DialogContent
+      showCloseButton={false}
+      class="sm:max-w-[1160px] max-h-[88vh] flex flex-col overflow-hidden"
       aria-labelledby={`${uid}-title`}
-      tabindex="-1"
-      use:focusTrap={{ onEscape: close }}
     >
       <DialogHeader
         id={`${uid}-title`}
@@ -77,15 +86,19 @@
           />{:else}{t.report_machine_subtitle()}{/if}
       </p>
 
-      <p class="playtime-summary"><MessageText content={reportSummary(report)} /></p>
-      <p class="playtime-stats"><MessageText content={reportStatistics(report)} /></p>
+      <p class="m-0 py-1 text-[13px] font-bold text-[var(--green)]">
+        <MessageText content={reportSummary(report)} />
+      </p>
+      <p class="m-0 py-0.5 text-xs font-semibold text-[var(--text-strong)]">
+        <MessageText content={reportStatistics(report)} />
+      </p>
       <p class="history-notice"><MessageText content={reportNotice(report)} /></p>
 
-      <div class="tabs" role="tablist">
+      <div class="flex border-b border-[var(--border)]" role="tablist">
         {#each tabs as [key, label] (key)}
           <button
             type="button"
-            class:active={app.reportTab === key}
+            class={tabButtonClasses(app.reportTab === key)}
             role="tab"
             aria-selected={app.reportTab === key}
             onclick={() => (app.reportTab = key)}
@@ -155,14 +168,14 @@
             empty={t.report_accounts_empty()}
           />
         {:else if app.reportTab === ReportTab.DAILY}
-          <div class="tab-panel">
-            <div class="range-row">
+          <div class="flex min-h-[260px] flex-col gap-2 pt-2.5">
+            <div class="mt-2.5 mb-2 flex items-center gap-2.5">
               <span class="field-label">{t.report_range_label()}</span>
-              <div class="range-group">
-                {#each [7, 30, 90] as days (days)}
+              <div class="flex">
+                {#each [7, 30, 90] as days, index (days)}
                   <button
                     type="button"
-                    class:active={app.chartRange === days}
+                    class={rangeButtonClasses(app.chartRange === days, index === 0, index === 2)}
                     onclick={() => (app.chartRange = days)}
                   >
                     {t.report_days_count({ count: days })}
@@ -220,7 +233,10 @@
                 title: sessionTooltip(session),
               },
               { text: formatSeconds(session.seconds), title: sessionTooltip(session) },
-              { text: coverageLabel(session.coverage), title: sessionTooltip(session) },
+              {
+                text: coverageLabel(session.coverage),
+                title: sessionTooltip(session),
+              },
               { text: sessionEnd(session), title: sessionTooltip(session) },
             ])}
             empty={t.report_history_empty()}
@@ -233,6 +249,6 @@
           ><X size={15} /> {t.common_close()}</button
         >
       </footer>
-    </div>
-  </div>
+    </DialogContent>
+  </AppDialog>
 {/if}

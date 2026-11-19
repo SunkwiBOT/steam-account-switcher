@@ -1,21 +1,22 @@
 use serde::Serialize;
+use ts_rs::TS;
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct InstallationDto {
     pub index: usize,
-    pub kind: String,
+    pub kind: steam_core::model::InstallKind,
     pub root: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct InstallationSettingDto {
     pub root: String,
-    pub kind: String,
+    pub kind: steam_core::model::InstallKind,
     pub custom: bool,
     pub hidden: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct SettingsDto {
     pub language: crate::locale::Language,
     pub resolved_language: String,
@@ -26,24 +27,26 @@ pub struct SettingsDto {
     pub update_interval: crate::settings::UpdateInterval,
     pub search_scope: crate::settings::SearchScope,
     pub vault_lock_interval: crate::settings::VaultLockInterval,
+    #[ts(type = "number | null")]
     pub last_update_check_at: Option<u64>,
     pub entries: Vec<InstallationSettingDto>,
     pub database_path: String,
+    pub vault_offer_dismissed: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct TrackingHistoryDto {
     pub installation: Option<TrackingInstallationDto>,
     pub account_count: usize,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct TrackingInstallationDto {
-    pub kind: String,
+    pub kind: steam_core::model::InstallKind,
     pub root: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct AccountDto {
     pub steam_id: String,
     pub account_name: String,
@@ -53,9 +56,10 @@ pub struct AccountDto {
     pub avatar: Option<String>,
     pub rank: String,
     pub rank_template: String,
-    pub rank_kind: String,
+    pub rank_kind: steam_core::ranks::RankKind,
     pub rank_family: String,
     pub playtime_seconds: f64,
+    #[ts(type = "number")]
     pub last_login_seconds: i64,
     pub is_current: bool,
     pub is_local: bool,
@@ -67,14 +71,16 @@ pub struct AccountDto {
     pub has_authenticator_session: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct VaultStatusDto {
     #[serde(flatten)]
+    #[ts(flatten)]
     pub status: steam_core::authenticator::VaultStatus,
+    #[ts(type = "number | null")]
     pub lock_in_seconds: Option<u64>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct FolderDto {
     pub id: String,
     pub name: String,
@@ -84,7 +90,7 @@ pub struct FolderDto {
     pub icon: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct ActiveGameDto {
     pub app_id: String,
     pub name: String,
@@ -92,13 +98,14 @@ pub struct ActiveGameDto {
     pub elapsed_seconds: f64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct SnapshotDto {
+    #[ts(type = "number")]
     pub revision: u64,
     pub installations: Vec<InstallationDto>,
     pub selected: usize,
     pub accounts: Vec<AccountDto>,
-    pub auto_login_user: String,
+    pub accounts_error: Option<String>,
     pub masked: bool,
     pub steam_ids_visible: bool,
     pub machine_seconds: f64,
@@ -111,13 +118,19 @@ pub struct SnapshotDto {
     pub vault: VaultStatusDto,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+pub struct SwitchResultDto {
+    pub snapshot: SnapshotDto,
+    pub outcome: steam_core::accounts::SwitchOutcomeKind,
+}
+
+#[derive(Serialize, TS)]
 pub struct AccountPlaytimeCellDto {
     pub steam_id: String,
     pub seconds: f64,
     pub session_count: usize,
 }
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct PlaytimeSnapshotDto {
     pub machine_seconds: f64,
     pub tracker_ready: bool,
@@ -125,26 +138,28 @@ pub struct PlaytimeSnapshotDto {
     pub active_games: Vec<ActiveGameDto>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct GameDto {
     pub app_id: String,
     pub name: String,
+    #[ts(type = "number")]
     pub sessions: u64,
     pub seconds: f64,
-    pub status: String,
+    pub status: steam_core::playtime::PlaytimeStatus,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct MachineGameDto {
     pub app_id: String,
     pub name: String,
     pub accounts: usize,
+    #[ts(type = "number")]
     pub sessions: u64,
     pub seconds: f64,
-    pub status: String,
+    pub status: steam_core::playtime::PlaytimeStatus,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct AccountPlaytimeDto {
     pub account_id: String,
     pub display_name: String,
@@ -153,10 +168,10 @@ pub struct AccountPlaytimeDto {
     pub avatar: Option<String>,
     pub games: usize,
     pub seconds: f64,
-    pub status: String,
+    pub status: steam_core::playtime::PlaytimeStatus,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct SessionDto {
     pub session_id: String,
     pub account_id: String,
@@ -171,21 +186,22 @@ pub struct SessionDto {
     pub launch_timestamp: f64,
     pub process_create_time: Option<f64>,
     pub root_pid: Option<u32>,
-    pub coverage: String,
-    pub end_reason: String,
+    pub coverage: steam_core::playtime::TrackingMode,
+    pub end_reason: Option<steam_core::playtime::EndReason>,
     pub exit_code: Option<i32>,
-    pub status: String,
+    pub status: steam_core::playtime::PlaytimeStatus,
     pub seconds: f64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct DailyPointDto {
     pub day: String,
     pub seconds: f64,
+    #[ts(type = "number")]
     pub sessions: u64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct StatisticsDto {
     pub history_started_at: f64,
     pub session_count: usize,
@@ -204,12 +220,13 @@ impl From<steam_core::playtime::PlaytimeStatistics> for StatisticsDto {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct ReportDto {
     pub account_id: Option<String>,
     pub total_seconds: f64,
     pub game_count: usize,
     pub account_count: usize,
+    #[ts(type = "number")]
     pub session_count: u64,
     pub rank: String,
     pub rank_template: String,
@@ -224,17 +241,47 @@ pub struct ReportDto {
     pub machine: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct RankTemplateDto {
     pub id: String,
     pub label: String,
-    pub kind: String,
+    pub kind: steam_core::ranks::RankKind,
     pub max_rating: Option<u32>,
     pub ranks: Vec<RankEntryDto>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
 pub struct RankEntryDto {
     pub value: String,
     pub family: String,
+}
+
+#[derive(Serialize, TS)]
+pub struct AppInfoDto {
+    pub name: String,
+    pub version: String,
+    pub repository: String,
+    pub backup_extension: String,
+}
+
+#[derive(Serialize, TS)]
+pub struct UpdateInfoDto {
+    pub version: String,
+    pub current_version: String,
+    pub notes: Option<String>,
+}
+
+#[derive(Clone, Serialize, TS)]
+pub struct UpdateProgressDto {
+    #[ts(type = "number")]
+    pub downloaded: u64,
+    #[ts(type = "number | null")]
+    pub total: Option<u64>,
+}
+
+#[derive(Serialize, TS)]
+pub struct BackupImportDto {
+    pub imported: usize,
+    pub skipped: usize,
+    pub snapshot: SnapshotDto,
 }

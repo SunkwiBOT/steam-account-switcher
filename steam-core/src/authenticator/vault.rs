@@ -1,7 +1,7 @@
 use super::{AuthError, VaultStatus};
 use crate::error_code::ErrorCode;
 use crate::storage::Database;
-use aes_gcm::aead::{rand_core::RngCore, Aead, OsRng};
+use aes_gcm::aead::{rand_core::RngCore, Aead, OsRng, Payload};
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use argon2::{Algorithm, Argon2, Params, Version};
 use base64::Engine as _;
@@ -11,25 +11,39 @@ use std::collections::{BTreeMap, BTreeSet};
 use steamguard::SteamGuardAccount;
 use zeroize::Zeroizing;
 
-pub(super) const VAULT_VERSION: u32 = 1;
-pub(super) const KDF_MEMORY_KIB: u32 = 19 * 1024;
-pub(super) const KDF_ITERATIONS: u32 = 2;
+// ! Bumped when the stored shape changes; version 1 is still read, and `unlock` re-seals it at this version.
+pub(super) const VAULT_VERSION: u32 = 2;
+// ! Version 1's fixed cost, kept only to open vaults sealed at version 1.
+pub(super) const KDF_MEMORY_KIB_V1: u32 = 19 * 1024;
+pub(super) const KDF_ITERATIONS_V1: u32 = 2;
+pub(super) const KDF_PARALLELISM_V1: u32 = 1;
+pub(super) const KDF_MEMORY_KIB: u32 = 64 * 1024;
+pub(super) const KDF_ITERATIONS: u32 = 3;
 pub(super) const KDF_PARALLELISM: u32 = 1;
+// ! A file-declared cost above this is rejected before deriving anything, to stop a crafted file from making Argon2 allocate or run unbounded.
+const MAX_KDF_MEMORY_KIB: u32 = KDF_MEMORY_KIB * 4;
+const MAX_KDF_ITERATIONS: u32 = KDF_ITERATIONS * 4;
+const MAX_KDF_PARALLELISM: u32 = KDF_PARALLELISM * 4;
 pub(super) const KEY_LENGTH: usize = 32;
 pub(super) const NONCE_LENGTH: usize = 12;
 pub(super) const SALT_LENGTH: usize = 16;
 
+// ! Shared gate: a file-declared cost must be in range before it reaches Argon2.
+pub(super) fn kdf_params_in_range(memory_kib: u32, iterations: u32, parallelism: u32) -> bool {
+    (KDF_MEMORY_KIB_V1..=MAX_KDF_MEMORY_KIB).contains(&memory_kib)
+        && (KDF_ITERATIONS_V1..=MAX_KDF_ITERATIONS).contains(&iterations)
+        && (KDF_PARALLELISM_V1..=MAX_KDF_PARALLELISM).contains(&parallelism)
+}
+
 pub(super) fn derive_key(
     passphrase: &str,
     salt: &[u8],
+    memory_kib: u32,
+    iterations: u32,
+    parallelism: u32,
 ) -> Result<Zeroizing<[u8; KEY_LENGTH]>, AuthError> {
-    let params = Params::new(
-        KDF_MEMORY_KIB,
-        KDF_ITERATIONS,
-        KDF_PARALLELISM,
-        Some(KEY_LENGTH),
-    )
-    .map_err(|_| AuthError::Code(ErrorCode::VaultEncryptionFailed))?;
+    let params = Params::new(memory_kib, iterations, parallelism, Some(KEY_LENGTH))
+        .map_err(|_| AuthError::Code(ErrorCode::VaultEncryptionFailed))?;
     let argon = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
     let mut key = Zeroizing::new([0u8; KEY_LENGTH]);
     argon
@@ -38,16 +52,34 @@ pub(super) fn derive_key(
     Ok(key)
 }
 
+// ! Binds version and KDF cost as AEAD associated data, so a tampered header invalidates the GCM tag.
+pub(super) fn header_aad(
+    prefix: &str,
+    version: u32,
+    memory_kib: u32,
+    iterations: u32,
+    parallelism: u32,
+) -> Vec<u8> {
+    format!("{prefix}-v{version}-argon2id-m{memory_kib}-t{iterations}-p{parallelism}").into_bytes()
+}
+
 pub(super) fn seal(
     key: &[u8; KEY_LENGTH],
     plaintext: &[u8],
+    aad: &[u8],
 ) -> Result<(Vec<u8>, Vec<u8>), AuthError> {
     let cipher = Aes256Gcm::new_from_slice(key)
         .map_err(|_| AuthError::Code(ErrorCode::VaultEncryptionFailed))?;
     let mut nonce = [0u8; NONCE_LENGTH];
     OsRng.fill_bytes(&mut nonce);
     let ciphertext = cipher
-        .encrypt(Nonce::from_slice(&nonce), plaintext)
+        .encrypt(
+            Nonce::from_slice(&nonce),
+            Payload {
+                msg: plaintext,
+                aad,
+            },
+        )
         .map_err(|_| AuthError::Code(ErrorCode::VaultEncryptionFailed))?;
     Ok((nonce.to_vec(), ciphertext))
 }
@@ -56,6 +88,7 @@ pub(super) fn open(
     key: &[u8; KEY_LENGTH],
     nonce: &[u8],
     ciphertext: &[u8],
+    aad: &[u8],
 ) -> Result<Vec<u8>, AuthError> {
     if nonce.len() != NONCE_LENGTH {
         return Err(AuthError::InvalidVault);
@@ -63,7 +96,13 @@ pub(super) fn open(
     let cipher =
         Aes256Gcm::new_from_slice(key).map_err(|_| AuthError::Code(ErrorCode::VaultOpenFailed))?;
     cipher
-        .decrypt(Nonce::from_slice(nonce), ciphertext)
+        .decrypt(
+            Nonce::from_slice(nonce),
+            Payload {
+                msg: ciphertext,
+                aad,
+            },
+        )
         .map_err(|_| AuthError::WrongPassphrase)
 }
 
@@ -94,13 +133,22 @@ pub(super) struct VaultFile {
     pub(super) passwordless: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) kdf: Option<String>,
+    // ! Present from version 2 onward: the exact Argon2id cost this file was
+    // sealed at, so raising the default cost later never breaks an older
+    // (still version 2) file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) kdf_memory_kib: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) kdf_iterations: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) kdf_parallelism: Option<u32>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) salt: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) nonce: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) ciphertext: Option<String>,
-    /// ! Account IDs are public metadata; they never authorize vault operations.
+    // ! Account IDs are public metadata; they never authorize vault operations.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) account_ids: Option<BTreeSet<String>>,
     #[serde(default, deserialize_with = "deserialize_accounts")]
@@ -116,6 +164,9 @@ impl Default for VaultFile {
             encrypted: false,
             passwordless: false,
             kdf: None,
+            kdf_memory_kib: None,
+            kdf_iterations: None,
+            kdf_parallelism: None,
             salt: None,
             nonce: None,
             ciphertext: None,
@@ -133,14 +184,18 @@ pub(super) struct Vault {
     pub(super) locked: bool,
     pub(super) key: Option<Zeroizing<[u8; KEY_LENGTH]>>,
     pub(super) salt: Option<[u8; SALT_LENGTH]>,
+    // ! The Argon2id cost `key` was actually derived with; kept so a later
+    // ! default-cost bump never seals a file whose header lies about its own key.
+    memory_kib: u32,
+    iterations: u32,
+    parallelism: u32,
     pub(super) pending: BTreeSet<String>,
     pub(super) load_error: Option<String>,
     known_ids: BTreeSet<String>,
     indexed: bool,
 }
 
-/// ! steamguard's shared-secret deserializer panics on invalid lengths, so
-/// ! external data must be validated before it is handed over.
+// ! steamguard's shared-secret deserializer panics on invalid lengths, so input must be validated first.
 pub(super) fn deserialize_accounts<'de, D: serde::Deserializer<'de>>(
     deserializer: D,
 ) -> Result<BTreeMap<String, SteamGuardAccount>, D::Error> {
@@ -194,7 +249,13 @@ fn read_vault(database: &Database) -> Result<Option<VaultFile>, AuthError> {
         return Ok(None);
     };
     let file: VaultFile = serde_json::from_str(&text).map_err(|_| AuthError::InvalidVault)?;
-    if file.version != VAULT_VERSION {
+    if file.version > VAULT_VERSION {
+        // ! Written by a newer build: never guess at an unknown KDF or
+        // header shape, and never let the caller mistake this for a
+        // generic "invalid" file.
+        return Err(AuthError::Code(ErrorCode::VaultRequiresNewerVersion));
+    }
+    if file.version < 1 {
         return Err(AuthError::Code(ErrorCode::UnsupportedVaultFormat));
     }
     if (file.encrypted && file.passwordless)
@@ -208,6 +269,16 @@ fn read_vault(database: &Database) -> Result<Option<VaultFile>, AuthError> {
     }
     if file.encrypted && file.kdf.as_deref() != Some("argon2id") {
         return Err(AuthError::Code(ErrorCode::UnsupportedVaultProtection));
+    }
+    if file.encrypted
+        && file.version >= 2
+        && (file.kdf_memory_kib.is_none()
+            || file.kdf_iterations.is_none()
+            || file.kdf_parallelism.is_none())
+    {
+        // ! A version-2 file must carry its own KDF cost; one missing those
+        // fields was tampered with or truncated.
+        return Err(AuthError::InvalidVault);
     }
     Ok(Some(file))
 }
@@ -234,6 +305,9 @@ impl Vault {
             locked: false,
             key: None,
             salt: None,
+            memory_kib: KDF_MEMORY_KIB,
+            iterations: KDF_ITERATIONS,
+            parallelism: KDF_PARALLELISM,
             pending: BTreeSet::new(),
             load_error: None,
             known_ids: BTreeSet::new(),
@@ -271,6 +345,10 @@ impl Vault {
             indexed: self.indexed,
             count: self.configured_ids().len(),
             error: self.load_error.clone(),
+            password_suggested: !self.encrypted
+                && !self.locked
+                && self.accounts.is_empty()
+                && self.pending.is_empty(),
         }
     }
 
@@ -322,8 +400,34 @@ impl Vault {
         if salt.len() != SALT_LENGTH || ciphertext.len() < 16 {
             return Err(AuthError::InvalidVault);
         }
-        let key = derive_key(passphrase, &salt)?;
-        let plaintext = Zeroizing::new(open(&key, &nonce, &ciphertext)?);
+        let (memory_kib, iterations, parallelism) = match (
+            file.kdf_memory_kib,
+            file.kdf_iterations,
+            file.kdf_parallelism,
+        ) {
+            (Some(memory_kib), Some(iterations), Some(parallelism)) => {
+                (memory_kib, iterations, parallelism)
+            }
+            // ! Version 1 never stored its cost: it was always this fixed one.
+            _ => (KDF_MEMORY_KIB_V1, KDF_ITERATIONS_V1, KDF_PARALLELISM_V1),
+        };
+        if !kdf_params_in_range(memory_kib, iterations, parallelism) {
+            return Err(AuthError::InvalidVault);
+        }
+        let key = derive_key(passphrase, &salt, memory_kib, iterations, parallelism)?;
+        let aad = if file.version >= 2 {
+            header_aad(
+                "steam-vault",
+                file.version,
+                memory_kib,
+                iterations,
+                parallelism,
+            )
+        } else {
+            // ! Version 1 sealed with no associated data at all.
+            Vec::new()
+        };
+        let plaintext = Zeroizing::new(open(&key, &nonce, &ciphertext, &aad)?);
         let plain: PlainVault =
             serde_json::from_slice(&plaintext).map_err(|_| AuthError::InvalidVault)?;
 
@@ -331,13 +435,44 @@ impl Vault {
         self.pending = plain.pending;
         self.encrypted = true;
         self.locked = false;
-        self.key = Some(key);
-        self.salt = salt.try_into().ok();
         self.load_error = None;
         self.known_ids = self.configured_ids();
         self.indexed = true;
-        // Repair the public index from the authenticated payload; if the write
-        // fails, stay locked and leave the old file intact.
+
+        // ! Recovers write-ahead rows with the key that sealed them, before any re-seal below replaces it.
+        self.key = Some(key.clone());
+        self.salt = salt.clone().try_into().ok();
+        self.memory_kib = memory_kib;
+        self.iterations = iterations;
+        self.parallelism = parallelism;
+        super::link_wal::recover(self);
+
+        // ! Re-seals whenever the file's cost is not the current one, whether from an old version or a since-raised default cost.
+        if file.version < VAULT_VERSION
+            || (memory_kib, iterations, parallelism)
+                != (KDF_MEMORY_KIB, KDF_ITERATIONS, KDF_PARALLELISM)
+        {
+            // ! Re-derives at the current cost with a fresh salt rather than keeping the weaker one this file used.
+            let mut fresh_salt = [0u8; SALT_LENGTH];
+            OsRng.fill_bytes(&mut fresh_salt);
+            self.key = Some(derive_key(
+                passphrase,
+                &fresh_salt,
+                KDF_MEMORY_KIB,
+                KDF_ITERATIONS,
+                KDF_PARALLELISM,
+            )?);
+            self.salt = Some(fresh_salt);
+            self.memory_kib = KDF_MEMORY_KIB;
+            self.iterations = KDF_ITERATIONS;
+            self.parallelism = KDF_PARALLELISM;
+            if let Err(error) = self.save() {
+                self.lock();
+                return Err(error);
+            }
+            return Ok(());
+        }
+
         if file.account_ids.as_ref() != Some(&self.known_ids) {
             if let Err(error) = self.save() {
                 self.lock();
@@ -359,9 +494,6 @@ impl Vault {
         }
     }
 
-    /// None explicitly selects no-password storage; an empty password is invalid.
-    /// Changing or removing an existing password requires its current value.
-    /// Conversion requires an unlocked vault and rolls back if persistence fails.
     pub(super) fn set_passphrase(
         &mut self,
         passphrase: Option<String>,
@@ -375,14 +507,20 @@ impl Vault {
                 .as_ref()
                 .filter(|value| !value.is_empty())
                 .ok_or(AuthError::Code(ErrorCode::CurrentPasswordRequired))?;
-            let candidate = derive_key(password, &self.salt.ok_or(AuthError::Locked)?)?;
-            // ! Verify the candidate key with GCM's constant-time tag check;
-            // ! never reload accounts or mutate the vault while verifying.
+            let candidate = derive_key(
+                password,
+                &self.salt.ok_or(AuthError::Locked)?,
+                self.memory_kib,
+                self.iterations,
+                self.parallelism,
+            )?;
+            // ! Verifies the candidate key with GCM's constant-time tag check; never mutates the vault while doing so.
             let (nonce, proof) = seal(
                 self.key.as_ref().ok_or(AuthError::Locked)?,
                 b"vault password verification",
+                b"",
             )?;
-            open(&candidate, &nonce, &proof)?;
+            open(&candidate, &nonce, &proof, b"")?;
         }
         let (key, salt) = match passphrase.as_ref() {
             Some(value) => {
@@ -391,22 +529,51 @@ impl Vault {
                 }
                 let mut salt = [0u8; SALT_LENGTH];
                 OsRng.fill_bytes(&mut salt);
-                (Some(derive_key(value, &salt)?), Some(salt))
+                (
+                    Some(derive_key(
+                        value,
+                        &salt,
+                        KDF_MEMORY_KIB,
+                        KDF_ITERATIONS,
+                        KDF_PARALLELISM,
+                    )?),
+                    Some(salt),
+                )
             }
             None => (None, None),
         };
-        let previous = (self.encrypted, self.key.take(), self.salt);
+        let previous = (
+            self.encrypted,
+            self.key.take(),
+            self.salt,
+            self.memory_kib,
+            self.iterations,
+            self.parallelism,
+        );
         self.encrypted = passphrase.is_some();
         self.key = key;
         self.salt = salt;
+        self.memory_kib = KDF_MEMORY_KIB;
+        self.iterations = KDF_ITERATIONS;
+        self.parallelism = KDF_PARALLELISM;
         if let Err(error) = self.save() {
-            (self.encrypted, self.key, self.salt) = previous;
+            (
+                self.encrypted,
+                self.key,
+                self.salt,
+                self.memory_kib,
+                self.iterations,
+                self.parallelism,
+            ) = previous;
             return Err(error);
+        }
+        if !previous.0 && self.encrypted {
+            // ! Best-effort: a failed VACUUM here must not undo the already-saved password; the next upgrade's VACUUM catches it.
+            let _ = self.database.vacuum("Rewrite freed vault pages");
         }
         Ok(())
     }
 
-    /// A vault without a password is usable as-is; nothing is stored before the first save.
     pub(super) fn require_available(&self) -> Result<(), AuthError> {
         self.require_unlocked()
     }
@@ -422,11 +589,22 @@ impl Vault {
                 })
                 .map_err(|_| AuthError::Code(ErrorCode::InvalidAuthenticatorData))?,
             );
-            let (nonce, ciphertext) = seal(key, &plain)?;
+            let aad = header_aad(
+                "steam-vault",
+                VAULT_VERSION,
+                self.memory_kib,
+                self.iterations,
+                self.parallelism,
+            );
+            let (nonce, ciphertext) = seal(key, &plain, &aad)?;
             VaultFile {
+                version: VAULT_VERSION,
                 encrypted: true,
                 passwordless: false,
                 kdf: Some("argon2id".to_string()),
+                kdf_memory_kib: Some(self.memory_kib),
+                kdf_iterations: Some(self.iterations),
+                kdf_parallelism: Some(self.parallelism),
                 salt: Some(base64_encode(&self.salt.ok_or(AuthError::Locked)?)),
                 nonce: Some(base64_encode(&nonce)),
                 ciphertext: Some(base64_encode(&ciphertext)),
@@ -435,6 +613,7 @@ impl Vault {
             }
         } else {
             VaultFile {
+                version: VAULT_VERSION,
                 passwordless: true,
                 accounts: self.accounts.clone(),
                 pending: self.pending.clone(),
@@ -460,6 +639,19 @@ impl Vault {
                 None => {
                     self.accounts.remove(&key);
                 }
+            }
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    // ! Removes from `pending` before the insert, so a crash between the two never leaves an account both recovered and still pending.
+    pub(super) fn commit_link(&mut self, account: SteamGuardAccount) -> Result<(), AuthError> {
+        let key = account.steam_id.to_string();
+        let was_pending = self.pending.remove(&key);
+        if let Err(error) = self.insert(account) {
+            if was_pending {
+                self.pending.insert(key);
             }
             return Err(error);
         }

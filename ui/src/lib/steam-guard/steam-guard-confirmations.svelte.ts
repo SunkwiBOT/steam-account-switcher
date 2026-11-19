@@ -1,12 +1,28 @@
-import type { ErrorApiMessage } from "../errors/errors.constants";
-import { errorMessage, resolveErrorCode } from "../errors/errors.svelte";
-import { t } from "../i18n/i18n.svelte";
+import { errorMessage, resolveErrorCode, type UiErrorCode } from "../errors/errors.svelte";
+import { rich, t } from "../i18n/i18n.svelte";
 import type { GuardBusyActionType } from "./steam-guard.constants";
-import { isCurrentResponse } from "./steam-guard-rules";
+import { isCurrentResponse, requiresExtraConfirmation } from "./steam-guard-rules";
 import { showToast } from "../state/state.svelte";
+import { ToastKind } from "../state/state.constants";
 import type { ToastAccountType } from "../types";
 import { invoke } from "../api/tauri";
-import type { ConfirmationItemType } from "../types";
+import type { ConfirmationItem } from "../bindings/ConfirmationItem";
+import type { ConfirmationKind as ConfirmationKindDto } from "../bindings/ConfirmationKind";
+import { askConfirm, confirmDialog } from "../state/dialogs.svelte";
+
+const KIND_LABELS: Record<ConfirmationKindDto, () => string> = {
+  TRADE: () => t.guard_confirmation_kind_trade(),
+  MARKET: () => t.guard_confirmation_kind_market(),
+  PHONE: () => t.guard_confirmation_kind_phone(),
+  RECOVERY: () => t.guard_confirmation_kind_recovery(),
+  API_KEY: () => t.guard_confirmation_kind_api_key(),
+  FEATURE: () => t.guard_confirmation_kind_opt_out(),
+  FAMILY: () => t.guard_confirmation_kind_family(),
+  TEST: () => t.guard_confirmation_kind_test(),
+  OTHER: () => t.guard_confirmation_kind_unknown(),
+};
+
+export const confirmationKindLabel = (kind: ConfirmationKindDto): string => KIND_LABELS[kind]();
 
 export type ConfirmationsDepsType = {
   steamId: () => string | null;
@@ -17,13 +33,11 @@ export type ConfirmationsDepsType = {
 };
 
 export const createConfirmationsController = (deps: ConfirmationsDepsType) => {
-  let items = $state<ConfirmationItemType[]>([]);
+  let items = $state<ConfirmationItem[]>([]);
   let busy = $state(false);
   let loaded = $state(false);
   let attempted = $state(false);
-  let error = $state<ErrorApiMessage | "">("");
-  //! Bumped whenever the list is invalidated so a load or action started
-  //! before it cannot write its result afterwards.
+  let error = $state<UiErrorCode | "">("");
   let revision = 0;
   let refreshQueued = false;
 
@@ -65,7 +79,7 @@ export const createConfirmationsController = (deps: ConfirmationsDepsType) => {
         items = list;
         loaded = true;
       }
-    } catch (cause) {
+    } catch (cause: unknown) {
       if (isCurrent(requested)) error = resolveErrorCode(cause);
     } finally {
       if (requested.generation === deps.generation()) {
@@ -78,9 +92,9 @@ export const createConfirmationsController = (deps: ConfirmationsDepsType) => {
     }
   };
 
-  const act = async (item: ConfirmationItemType, accept: boolean): Promise<void> => {
+  const perform = async (item: ConfirmationItem, accept: boolean): Promise<boolean> => {
     const steamId = deps.steamId();
-    if (!steamId || deps.isBusy()) return;
+    if (!steamId) return false;
     invalidate();
     const done = await deps.runVoid(
       () =>
@@ -95,12 +109,37 @@ export const createConfirmationsController = (deps: ConfirmationsDepsType) => {
     if (done !== null) {
       items = items.filter((candidate) => candidate.id !== item.id);
       showToast(
+        ToastKind.SUCCESS,
         accept ? t.guard_confirmation_accept_success() : t.guard_confirmation_refuse_success(),
-        true,
-        deps.account(),
+        { account: deps.account() },
       );
     }
     await load();
+    return done !== null;
+  };
+
+  const act = (item: ConfirmationItem, accept: boolean): void => {
+    const steamId = deps.steamId();
+    if (!steamId || deps.isBusy()) return;
+    if (accept && requiresExtraConfirmation(item.kind)) {
+      if (confirmDialog.open) return;
+      const detail = item.summary
+        ? `${item.headline} — ${item.summary.replace(/\n/g, " · ")}`
+        : item.headline;
+      askConfirm({
+        title: t.guard_confirmation_extra_title(),
+        text: rich(t.guard_confirmation_extra_description, {
+          kind: confirmationKindLabel(item.kind),
+          detail,
+        }),
+        confirmLabel: t.guard_confirmation_extra_accept(),
+        busyLabel: t.common_saving(),
+        danger: true,
+        action: () => perform(item, accept),
+      });
+      return;
+    }
+    void perform(item, accept);
   };
 
   return {

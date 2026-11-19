@@ -1,10 +1,9 @@
-//! Session lifecycle: turning Steam's process events into started and finished
-//! sessions, and reconciling them against the processes still alive.
+// ! Session lifecycle: turning Steam's process events into started and finished sessions, and reconciling them against the processes still alive.
 
 use super::{new_session_id, PlaytimeTracker};
 use crate::model::SteamAccount;
 use crate::playtime::log::{probe_event_process, GameProcessEvent};
-use crate::playtime::model::SessionRecord;
+use crate::playtime::model::{EndReason, SessionRecord, TrackingMode};
 use crate::playtime::FRESH_EVENT_TOLERANCE;
 use crate::processes::ProcessFacts;
 
@@ -25,7 +24,12 @@ impl PlaytimeTracker {
             }
 
             let ended_at = event.timestamp.max(existing.started_at);
-            self.finish_session(&event.app_id, ended_at, "replaced_by_new_launch", None);
+            self.finish_session(
+                &event.app_id,
+                ended_at,
+                EndReason::ReplacedByNewLaunch,
+                None,
+            );
         }
 
         let historical = event.timestamp < self.instance_started_at - FRESH_EVENT_TOLERANCE;
@@ -34,9 +38,9 @@ impl PlaytimeTracker {
             if !facts.running {
                 return false;
             }
-            (now, "partial")
+            (now, TrackingMode::Partial)
         } else {
-            (event.timestamp, "full")
+            (event.timestamp, TrackingMode::Full)
         };
 
         self.start_session(event, started_at, now, tracking_mode)
@@ -52,7 +56,7 @@ impl PlaytimeTracker {
         self.finish_session(
             &event.app_id,
             event.timestamp,
-            "root_process_exit_log",
+            EndReason::RootProcessExitLog,
             event.exit_code,
         )
     }
@@ -62,7 +66,7 @@ impl PlaytimeTracker {
         event: &GameProcessEvent,
         started_at: f64,
         observed_at: f64,
-        tracking_mode: &str,
+        tracking_mode: TrackingMode,
     ) -> bool {
         let Some(account) = self.resolve_active_account() else {
             return false;
@@ -102,7 +106,7 @@ impl PlaytimeTracker {
                 started_at,
                 launch_command: event.command.clone(),
                 last_seen_at: Some(observed_at),
-                tracking_mode: tracking_mode.to_string(),
+                tracking_mode,
                 ..SessionRecord::default()
             },
         );
@@ -113,7 +117,7 @@ impl PlaytimeTracker {
         &mut self,
         app_id: &str,
         ended_at: f64,
-        end_reason: &str,
+        end_reason: EndReason,
         exit_code: Option<i32>,
     ) -> bool {
         let Some(session) = self.state.active_sessions.remove(app_id) else {
@@ -157,7 +161,7 @@ impl PlaytimeTracker {
                 duration_seconds: Some(seconds),
                 tracked_started_at: Some(started_at),
                 session_id,
-                end_reason: end_reason.to_string(),
+                end_reason: Some(end_reason),
                 exit_code,
                 ..session
             });
@@ -188,9 +192,9 @@ impl PlaytimeTracker {
                 now
             };
             let reason = if loaded {
-                "process_missing_after_restart"
+                EndReason::ProcessMissingAfterRestart
             } else {
-                "process_exit"
+                EndReason::ProcessExit
             };
             changed |= self.finish_session(&app_id, ended_at, reason, None);
         }

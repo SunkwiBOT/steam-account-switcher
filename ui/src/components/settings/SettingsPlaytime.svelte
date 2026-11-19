@@ -2,8 +2,10 @@
   import { Timer, Trash2 } from "@lucide/svelte";
   import { t, rich } from "../../lib/i18n/i18n.svelte";
   import { installationLabel } from "../../lib/state/status";
-  import { app, EMPTY_SETTINGS, run } from "../../lib/state/state.svelte";
+  import { app, run } from "../../lib/state/state.svelte";
+  import { EMPTY_SETTINGS } from "../../lib/state/settings";
   import { askConfirm } from "../../lib/state/dialogs.svelte";
+  import { settingsDraft } from "../../lib/state/settings-draft.svelte";
   import ActionButton from "../ui/ActionButton.svelte";
   import CopyButton from "../ui/CopyButton.svelte";
   import MessageText from "../ui/MessageText.svelte";
@@ -13,57 +15,49 @@
   const hasStoredHistory = $derived(
     settings.tracking_history.some((history) => history.account_count > 0),
   );
+  const draft = $derived(settingsDraft.value);
   let clearing = $state(false);
-  let trackingBusy = $state(false);
 
-  const setTracking = async (enabled: boolean): Promise<void> => {
-    if (trackingBusy || clearing) return;
-    trackingBusy = true;
-    try {
-      await run("set_tracking_enabled", { enabled });
-    } finally {
-      trackingBusy = false;
-    }
-  };
-  const uid = $props.id();
-
-  const clearData = async (): Promise<void> => {
-    if (clearing || trackingBusy) return;
-    const answer = await askConfirm({
+  const clearData = (): void => {
+    if (clearing || settingsDraft.saving) return;
+    askConfirm({
       title: t.playtime_clear_title(),
       text: settings.tracking_enabled
         ? t.playtime_clear_tracking_confirm()
         : t.playtime_clear_paused_confirm(),
       confirmLabel: t.playtime_clear_action(),
+      busyLabel: t.playtime_clear_pending(),
       danger: true,
+      action: async () => {
+        if (clearing || settingsDraft.saving) return false;
+        clearing = true;
+        try {
+          const result = await run("clear_playtime_data", undefined, {
+            successTitle: t.playtime_clear_success(),
+          });
+          if (result) app.report = null;
+          return result !== null;
+        } finally {
+          clearing = false;
+        }
+      },
     });
-    if (!answer || clearing || trackingBusy) return;
-    clearing = true;
-    try {
-      if (
-        await run(
-          "clear_playtime_data",
-          { confirmed: true },
-          { success: t.playtime_clear_success() },
-        )
-      )
-        app.report = null;
-    } finally {
-      clearing = false;
-    }
   };
+  const uid = $props.id();
 </script>
 
 <section class="settings-card">
   <h3 class="settings-card-title"><Timer size={15} /> {t.playtime_title()}</h3>
   <SettingToggle
     label={t.playtime_tracking_label()}
-    checked={settings.tracking_enabled !== false}
-    disabled={clearing}
-    onchange={setTracking}
+    checked={draft.trackingEnabled}
+    disabled={clearing || settingsDraft.saving}
+    onchange={async (enabled) => {
+      settingsDraft.set("trackingEnabled", enabled);
+    }}
   />
   <p class="settings-note">
-    {settings.tracking_enabled !== false
+    {draft.trackingEnabled
       ? t.playtime_tracking_enabled_description()
       : t.playtime_tracking_disabled_description()}
   </p>
@@ -110,7 +104,7 @@
       label={t.playtime_clear_action()}
       busyLabel={t.playtime_clear_pending()}
       busy={clearing}
-      disabled={trackingBusy || !hasStoredHistory}
+      disabled={settingsDraft.saving || !hasStoredHistory}
       className="button danger"
       onclick={clearData}
     />

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Download, Upload } from "@lucide/svelte";
   import { app } from "../../lib/state/state.svelte";
-  import { BackupMode, BACKUP_EXTENSION } from "../../lib/vault/backup.constants";
+  import { BackupMode } from "../../lib/vault/backup.constants";
   import { t, rich } from "../../lib/i18n/i18n.svelte";
   import MessageText from "../ui/MessageText.svelte";
 </script>
@@ -10,7 +10,9 @@
   <h3 class="settings-card-title"><Download size={15} /> {t.backup_settings_title()}</h3>
   <p class="settings-note">
     <MessageText
-      content={rich(t.backup_settings_description, { format: `.${BACKUP_EXTENSION}` }, ["format"])}
+      content={rich(t.backup_settings_description, { format: `.${app.info.backup_extension}` }, [
+        "format",
+      ])}
     />
   </p>
   <div class="settings-actions">

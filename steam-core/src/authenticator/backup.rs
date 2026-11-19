@@ -1,6 +1,7 @@
 use super::vault::{
-    base64_decode, base64_encode, derive_key, deserialize_accounts, open, seal, NONCE_LENGTH,
-    SALT_LENGTH,
+    base64_decode, base64_encode, derive_key, deserialize_accounts, header_aad,
+    kdf_params_in_range, open, seal, KDF_ITERATIONS, KDF_ITERATIONS_V1, KDF_MEMORY_KIB,
+    KDF_MEMORY_KIB_V1, KDF_PARALLELISM, KDF_PARALLELISM_V1, NONCE_LENGTH, SALT_LENGTH,
 };
 use super::{io_error, AuthError, Authenticator};
 use crate::error_code::ErrorCode;
@@ -12,8 +13,11 @@ use std::path::Path;
 use steamguard::SteamGuardAccount;
 use zeroize::Zeroizing;
 
+// ! Exports always write `BACKUP_FORMAT`; imports also accept `BACKUP_FORMAT_ALIAS` since both apps share the same payload shape.
 const BACKUP_FORMAT: &str = "steam-account-switcher-authenticators";
-const BACKUP_VERSION: u32 = 1;
+const BACKUP_FORMAT_ALIAS: &str = "steam-guard-desktop-authenticators";
+// ! Bumped alongside the vault format; version 1 (fixed cost, no associated data) is still read, exports always write this version.
+const BACKUP_VERSION: u32 = 2;
 const MAX_BACKUP_BYTES: u64 = 16 * 1024 * 1024;
 
 #[derive(Serialize, Deserialize)]
@@ -30,6 +34,13 @@ enum BackupData {
         payload: BackupPayload,
     },
     Password {
+        // ! Present from version 2 onward: the Argon2id cost this file was sealed at, so raising the default cost never breaks an older backup.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kdf_memory_kib: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kdf_iterations: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        kdf_parallelism: Option<u32>,
         salt: String,
         nonce: String,
         ciphertext: String,
@@ -61,12 +72,18 @@ fn read_backup(path: &Path, password: Option<&str>) -> Result<BackupPayload, Aut
         return Err(AuthError::InvalidBackup);
     }
     let file: BackupFile = serde_json::from_slice(&bytes).map_err(|_| AuthError::InvalidBackup)?;
-    if file.format != BACKUP_FORMAT || file.version != BACKUP_VERSION {
+    if !matches!(file.format.as_str(), BACKUP_FORMAT | BACKUP_FORMAT_ALIAS) {
+        return Err(AuthError::Code(ErrorCode::UnsupportedBackupFormat));
+    }
+    if file.version > BACKUP_VERSION || file.version < 1 {
         return Err(AuthError::Code(ErrorCode::UnsupportedBackupFormat));
     }
     let mut payload = match file.data {
         BackupData::None { payload } => payload,
         BackupData::Password {
+            kdf_memory_kib,
+            kdf_iterations,
+            kdf_parallelism,
             salt,
             nonce,
             ciphertext,
@@ -80,11 +97,39 @@ fn read_backup(path: &Path, password: Option<&str>) -> Result<BackupPayload, Aut
             if salt.len() != SALT_LENGTH || nonce.len() != NONCE_LENGTH || ciphertext.len() < 16 {
                 return Err(AuthError::InvalidBackup);
             }
-            // ! Version 1 fixes the Argon2id parameters: a file must never be
-            // ! able to request its own (unbounded) KDF cost.
-            let key = derive_key(password, &salt)?;
+            let (memory_kib, iterations, parallelism) =
+                match (kdf_memory_kib, kdf_iterations, kdf_parallelism) {
+                    (Some(memory_kib), Some(iterations), Some(parallelism)) => {
+                        (memory_kib, iterations, parallelism)
+                    }
+                    // ! Version 1 never stored its cost: it was always this fixed one.
+                    _ => (KDF_MEMORY_KIB_V1, KDF_ITERATIONS_V1, KDF_PARALLELISM_V1),
+                };
+            if file.version >= 2
+                && (kdf_memory_kib.is_none()
+                    || kdf_iterations.is_none()
+                    || kdf_parallelism.is_none())
+            {
+                return Err(AuthError::InvalidBackup);
+            }
+            if !kdf_params_in_range(memory_kib, iterations, parallelism) {
+                return Err(AuthError::InvalidBackup);
+            }
+            let key = derive_key(password, &salt, memory_kib, iterations, parallelism)?;
+            let aad = if file.version >= 2 {
+                header_aad(
+                    "steam-backup",
+                    file.version,
+                    memory_kib,
+                    iterations,
+                    parallelism,
+                )
+            } else {
+                Vec::new()
+            };
             let plaintext = Zeroizing::new(
-                open(&key, &nonce, &ciphertext).map_err(|_| AuthError::BackupDecryptionFailed)?,
+                open(&key, &nonce, &ciphertext, &aad)
+                    .map_err(|_| AuthError::BackupDecryptionFailed)?,
             );
             serde_json::from_slice(&plaintext).map_err(|_| AuthError::InvalidBackup)?
         }
@@ -149,13 +194,29 @@ impl Authenticator {
                 }
                 let mut salt = [0u8; SALT_LENGTH];
                 OsRng.fill_bytes(&mut salt);
-                let key = derive_key(password, &salt)?;
+                let key = derive_key(
+                    password,
+                    &salt,
+                    KDF_MEMORY_KIB,
+                    KDF_ITERATIONS,
+                    KDF_PARALLELISM,
+                )?;
                 let plaintext = Zeroizing::new(
                     serde_json::to_vec(&payload)
                         .map_err(|_| AuthError::Code(ErrorCode::BackupExportFailed))?,
                 );
-                let (nonce, ciphertext) = seal(&key, &plaintext)?;
+                let aad = header_aad(
+                    "steam-backup",
+                    BACKUP_VERSION,
+                    KDF_MEMORY_KIB,
+                    KDF_ITERATIONS,
+                    KDF_PARALLELISM,
+                );
+                let (nonce, ciphertext) = seal(&key, &plaintext, &aad)?;
                 BackupData::Password {
+                    kdf_memory_kib: Some(KDF_MEMORY_KIB),
+                    kdf_iterations: Some(KDF_ITERATIONS),
+                    kdf_parallelism: Some(KDF_PARALLELISM),
                     salt: base64_encode(&salt),
                     nonce: base64_encode(&nonce),
                     ciphertext: base64_encode(&ciphertext),
@@ -213,33 +274,8 @@ impl Authenticator {
     }
 }
 
-/// ! Backup files hold secrets even when encrypted: created owner-only and
-/// ! synced before replacing an older export.
+// ! Backup files hold secrets even when encrypted; created owner-only and synced before replacing an older export.
 fn write_private_file(path: &Path, text: &str) -> Result<(), AuthError> {
-    use std::io::Write;
-    let io = |error: std::io::Error| AuthError::Io(error.to_string());
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(io)?;
-    }
-    let mut random = [0u8; 8];
-    OsRng.fill_bytes(&mut random);
-    let name = path.file_name().unwrap_or_default().to_string_lossy();
-    let temporary = path.with_file_name(format!(".{name}.{:016x}.tmp", u64::from_le_bytes(random)));
-    let result = (|| {
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            options.mode(0o600);
-        }
-        let mut file = options.open(&temporary)?;
-        file.write_all(text.as_bytes())?;
-        file.sync_all()?;
-        std::fs::rename(&temporary, path)
-    })();
-    if result.is_err() {
-        let _ = std::fs::remove_file(&temporary);
-    }
-    result.map_err(io)
+    crate::util::write_atomic(path, text, crate::util::WriteMode::Private(0o600))
+        .map_err(|error| AuthError::Io(error.to_string()))
 }

@@ -8,10 +8,11 @@
   import { AlertTriangle, FileText, FolderOpen, RefreshCw } from "@lucide/svelte";
   import { invoke } from "../../lib/api/tauri";
   import { showToast } from "../../lib/state/state.svelte";
-  import type { LogSnapshotType } from "../../lib/types";
+  import { ToastKind } from "../../lib/state/state.constants";
+  import type { LogSnapshot } from "../../lib/bindings/LogSnapshot";
   import CopyButton from "../ui/CopyButton.svelte";
 
-  let log = $state<LogSnapshotType | null>(null);
+  let log = $state<LogSnapshot | null>(null);
   let previous = $state(false);
   let loading = $state(false);
   let opening = $state(false);
@@ -27,7 +28,7 @@
     try {
       const result = await invoke("logs_snapshot", { previous });
       if (current === generation) log = result;
-    } catch (cause) {
+    } catch (cause: unknown) {
       if (current === generation) error = resolveErrorCode(cause);
     } finally {
       if (current === generation) loading = false;
@@ -39,8 +40,8 @@
     opening = true;
     try {
       await invoke("logs_open_directory");
-    } catch (cause) {
-      showToast(errorMessage(cause));
+    } catch (cause: unknown) {
+      showToast(ToastKind.ERROR, t.toast_error_title(), { description: errorMessage(cause) });
     } finally {
       opening = false;
     }

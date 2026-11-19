@@ -1,4 +1,4 @@
-//! Insertion order is preserved: Steam rewrites these files itself.
+// ! Insertion order is preserved: Steam rewrites these files itself.
 
 use std::fmt;
 
@@ -35,8 +35,7 @@ impl VdfValue {
     }
 }
 
-/// ! Lookups are case-insensitive: Steam is not consistent about key casing
-/// ! between client versions and platforms.
+// ! Lookups are case-insensitive: Steam is not consistent about key casing between client versions and platforms.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct VdfObject {
     entries: Vec<(String, VdfValue)>,
@@ -92,7 +91,7 @@ impl VdfObject {
         self.get_mut(key).and_then(VdfValue::as_object_mut)
     }
 
-    /// Case-insensitive insert. Keeps the existing key spelling when present.
+    // ! Case-insensitive: overwriting keeps the existing key's spelling.
     pub fn insert(&mut self, key: &str, value: VdfValue) {
         match self.position(key) {
             Some(index) => self.entries[index].1 = value,
@@ -209,7 +208,7 @@ fn tokenize(input: &str) -> Result<Vec<Token>, VdfError> {
             continue;
         }
 
-        // Steam's own files use "//" comments.
+        // ! Steam's own files use "//" comments.
         if current == b'/' && bytes.get(index + 1) == Some(&b'/') {
             match input[index..].find('\n') {
                 Some(offset) => index += offset + 1,
@@ -238,9 +237,14 @@ fn tokenize(input: &str) -> Result<Vec<Token>, VdfError> {
             while index < bytes.len() {
                 let byte = bytes[index];
                 if byte == b'\\' && index + 1 < bytes.len() {
-                    let escaped = input[index + 1..].chars().next().unwrap_or('\\');
-                    value.push(escaped);
-                    index += 1 + escaped.len_utf8();
+                    let next = input[index + 1..].chars().next().unwrap_or('\\');
+                    let decoded = match next {
+                        'n' => '\n',
+                        't' => '\t',
+                        other => other,
+                    };
+                    value.push(decoded);
+                    index += 1 + next.len_utf8();
                     continue;
                 }
                 if byte == b'"' {
@@ -275,7 +279,13 @@ fn tokenize(input: &str) -> Result<Vec<Token>, VdfError> {
     Ok(tokens)
 }
 
-fn parse_object(tokens: &[Token], cursor: &mut usize, nested: bool) -> Result<VdfObject, VdfError> {
+const MAX_NESTING_DEPTH: usize = 64;
+
+fn parse_object(tokens: &[Token], cursor: &mut usize, depth: usize) -> Result<VdfObject, VdfError> {
+    if depth > MAX_NESTING_DEPTH {
+        return Err(VdfError::at(*cursor, "exceeded the maximum nesting depth"));
+    }
+
     let mut object = VdfObject::new();
 
     while *cursor < tokens.len() {
@@ -298,11 +308,12 @@ fn parse_object(tokens: &[Token], cursor: &mut usize, nested: bool) -> Result<Vd
             .get(*cursor)
             .ok_or_else(|| VdfError::at(*cursor, format!("missing value for key {key:?}")))?;
 
+        // ! Entries are appended raw, not through `insert`: the parser must keep duplicate or differently-cased sibling keys exactly as Steam wrote them, or the next dump silently drops them.
         match token {
             Token::OpenBrace => {
                 *cursor += 1;
-                let child = parse_object(tokens, cursor, true)?;
-                object.insert(&key, VdfValue::Object(child));
+                let child = parse_object(tokens, cursor, depth + 1)?;
+                object.entries.push((key, VdfValue::Object(child)));
             }
             Token::CloseBrace => {
                 return Err(VdfError::at(
@@ -311,16 +322,14 @@ fn parse_object(tokens: &[Token], cursor: &mut usize, nested: bool) -> Result<Vd
                 ))
             }
             Token::Text(text) => {
-                object.insert(&key, VdfValue::String(text.clone()));
+                object.entries.push((key, VdfValue::String(text.clone())));
                 *cursor += 1;
             }
         }
     }
 
-    // ! Steam's files have no root brace, so only the top level may end at end
-    // ! of input. An unclosed nested object means the file was cut; accepting
-    // ! it would let the next write drop the lost accounts.
-    if nested {
+    // ! Steam's files have no root brace, so only the top level may end at end of input; accepting an unclosed nested object would let the next write drop the lost accounts.
+    if depth > 0 {
         return Err(VdfError::at(*cursor, "unexpected end of input"));
     }
     Ok(object)
@@ -329,7 +338,7 @@ fn parse_object(tokens: &[Token], cursor: &mut usize, nested: bool) -> Result<Vd
 pub fn parse(input: &str) -> Result<VdfObject, VdfError> {
     let tokens = tokenize(input)?;
     let mut cursor = 0;
-    let object = parse_object(&tokens, &mut cursor, false)?;
+    let object = parse_object(&tokens, &mut cursor, 0)?;
     if cursor != tokens.len() {
         return Err(VdfError::at(
             cursor,
@@ -345,6 +354,8 @@ fn escape(value: &str) -> String {
         match character {
             '\\' => escaped.push_str("\\\\"),
             '"' => escaped.push_str("\\\""),
+            '\n' => escaped.push_str("\\n"),
+            '\t' => escaped.push_str("\\t"),
             _ => escaped.push(character),
         }
     }
@@ -376,4 +387,17 @@ pub fn dump(object: &VdfObject) -> String {
     let mut output = String::new();
     write_object(object, 0, &mut output);
     output
+}
+
+// ! Refuses to hand back text that would not read back to an identical structure: any shape the parser cannot represent exactly must not silently reach Steam's own files.
+pub fn dump_verified(object: &VdfObject) -> Result<String, VdfError> {
+    let text = dump(object);
+    let reparsed = parse(&text)?;
+    if &reparsed != object {
+        return Err(VdfError::at(
+            0,
+            "dump/parse round trip produced a different structure",
+        ));
+    }
+    Ok(text)
 }

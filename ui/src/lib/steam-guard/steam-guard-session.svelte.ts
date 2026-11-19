@@ -1,5 +1,4 @@
-import { ErrorApiMessage } from "../errors/errors.constants";
-import { errorMessage, resolveErrorCode } from "../errors/errors.svelte";
+import { errorMessage, resolveErrorCode, type UiErrorCode } from "../errors/errors.svelte";
 import { GuardAction, SteamGuardScreen, SteamGuardField } from "./steam-guard.constants";
 import type { GuardBusyActionType } from "./steam-guard.constants";
 import { fieldForGuardAction } from "./steam-guard-rules";
@@ -13,10 +12,9 @@ export const createGuardSession = (deps: GuardSessionDepsType) => {
   let screen = $state<SteamGuardScreen>(SteamGuardScreen.HOME);
   let busy = $state(false);
   let busyAction = $state<GuardBusyActionType>(GuardAction.IDLE);
-  let error = $state<ErrorApiMessage | "">("");
+  let error = $state<UiErrorCode | "">("");
   let errorField = $state(SteamGuardField.GENERAL);
 
-  //! Bumped on every reset and cancel so responses from a closed or restarted session are dropped.
   let generation = 0;
 
   const invalidate = (): void => {
@@ -43,7 +41,7 @@ export const createGuardSession = (deps: GuardSessionDepsType) => {
     try {
       const result = await action();
       return current === generation ? result : null;
-    } catch (cause) {
+    } catch (cause: unknown) {
       if (current === generation) {
         error = resolveErrorCode(cause);
         errorField = fieldForGuardAction(name, error, deps.needsCode());
@@ -67,7 +65,7 @@ export const createGuardSession = (deps: GuardSessionDepsType) => {
     }, name);
   };
 
-  const fail = (code: ErrorApiMessage, field: SteamGuardField): void => {
+  const fail = (code: UiErrorCode, field: SteamGuardField): void => {
     error = code;
     errorField = field;
   };

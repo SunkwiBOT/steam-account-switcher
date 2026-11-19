@@ -1,10 +1,8 @@
 import { t } from "../i18n/i18n.svelte";
 
 import { hasRankIcon } from "./rank-icons";
-import { RankKind } from "./ranks.constants";
-import type { AccountType } from "../types";
+import type { AccountDto } from "../bindings/AccountDto";
 
-/** Premier rating bands, sampled from the in-game tier badges. */
 export const PREMIER_BANDS = [
   {
     min: 0,
@@ -85,15 +83,13 @@ const rankNames: Record<string, () => string> = {
 
 export const rankLabel = (value: string): string => {
   if (!value || value === UNRANKED) return t.rank_unranked();
-  if (rankNames[value]) return rankNames[value]();
+  if (Object.hasOwn(rankNames, value)) return rankNames[value]();
   const match = /^(.+) ([1-5])$/.exec(value);
-  return match && rankNames[match[1]]
+  return match && Object.hasOwn(rankNames, match[1])
     ? t.rank_division({ rank: rankNames[match[1]](), division: match[2] })
     : value;
 };
 
-// ! An account card has room for about ten characters beside the playtime and the icon: the
-// long names get the short forms players use; the full name stays in the tooltip.
 const SHORT_RANKS: Record<string, string> = {
   Grandmaster: "GM",
   "Silver I": "S1",
@@ -150,8 +146,8 @@ export const premierBand = (rating: number | string) => {
   return { ...band, name: colourLabel(band.name) };
 };
 
-export const formatRating = (value: unknown): string => {
-  const digits = String(value ?? "").replace(/[^0-9]/g, "");
+export const formatRating = (value: string): string => {
+  const digits = value.replace(/[^0-9]/g, "");
   if (!digits) {
     return "";
   }
@@ -165,13 +161,13 @@ export type RankBadgeType = {
   icon: string | null;
 };
 
-export const rankBadge = (entry: AccountType): RankBadgeType => {
+export const rankBadge = (entry: AccountDto): RankBadgeType => {
   const value = entry.rank || UNRANKED;
   if (value === UNRANKED) {
     return { text: "", short: "", colour: "", icon: null };
   }
 
-  if (entry.rank_kind === RankKind.RATING) {
+  if (entry.rank_kind === "RATING") {
     return {
       text: formatRating(value),
       short: formatRating(value),

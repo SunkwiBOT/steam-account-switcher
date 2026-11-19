@@ -1,6 +1,7 @@
 import { m } from "../paraglide/messages.js";
 import { setLocale } from "../paraglide/runtime.js";
-import { Language, resolveSystemLocale } from "./i18n.constants";
+import type { Language } from "../bindings/Language";
+import { resolveSystemLocale } from "./i18n.constants";
 import type { ResolvedLanguageType } from "./i18n.constants";
 import type { MessagePartType } from "./messages";
 
@@ -8,14 +9,14 @@ const systemLocale = (): ResolvedLanguageType =>
   resolveSystemLocale(navigator.languages.length ? navigator.languages : [navigator.language]);
 
 export const locale = $state<{ preference: Language; current: ResolvedLanguageType }>({
-  preference: Language.AUTO,
+  preference: "auto",
   current: systemLocale(),
 });
 
 export const applyLanguage = (preference: Language, resolved?: ResolvedLanguageType): void => {
   locale.preference = preference;
-  locale.current = resolved ?? (preference === Language.AUTO ? systemLocale() : preference);
-  setLocale(locale.current, { reload: false });
+  locale.current = resolved ?? (preference === "auto" ? systemLocale() : preference);
+  void setLocale(locale.current, { reload: false });
   document.documentElement.lang = locale.current;
 };
 
@@ -83,4 +84,4 @@ export const relativeDate = (timestamp: number): string => {
   );
 };
 
-applyLanguage(Language.AUTO);
+applyLanguage("auto");

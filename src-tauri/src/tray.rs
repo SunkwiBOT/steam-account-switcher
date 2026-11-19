@@ -8,11 +8,10 @@ use crate::state::AppState;
 pub const TRAY_ID: &str = "steam-account-switcher-tray";
 const ACCOUNT_PREFIX: &str = "account:";
 
-/// ! Tauri can only replace a tray menu on Windows and macOS; on Linux the
-/// existing menu must be edited in place, so its handle is kept.
+// ! Tauri can only replace a tray menu on Windows and macOS; on Linux the existing menu must be edited in place, so its handle is kept.
 pub struct TrayMenu(pub Mutex<Option<Menu<tauri::Wry>>>);
 
-/// Reports whether the icon exists: the window must not hide without one.
+// ! Reports whether the icon exists: the window must not hide without one.
 pub fn install(app: &AppHandle) -> tauri::Result<bool> {
     let menu = build_menu(app)?;
     app.manage(TrayMenu(Mutex::new(Some(menu.clone()))));
@@ -53,14 +52,14 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         .item(&MenuItem::with_id(
             app,
             "open",
-            rust_i18n::t!("tray_open", locale = locale),
+            crate::catalog::text(locale, "tray_open"),
             true,
             None::<&str>,
         )?)
         .item(&MenuItem::with_id(
             app,
             "refresh",
-            rust_i18n::t!("tray_refresh", locale = locale),
+            crate::catalog::text(locale, "tray_refresh"),
             true,
             None::<&str>,
         )?)
@@ -68,7 +67,7 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         .item(&MenuItem::with_id(
             app,
             "empty",
-            rust_i18n::t!("tray_no_accounts", locale = locale),
+            crate::catalog::text(locale, "tray_no_accounts"),
             false,
             None::<&str>,
         )?)
@@ -76,17 +75,14 @@ fn build_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         .item(&MenuItem::with_id(
             app,
             "quit",
-            rust_i18n::t!("tray_quit", locale = locale),
+            crate::catalog::text(locale, "tray_quit"),
             true,
             None::<&str>,
         )?)
         .build()
 }
 
-/// ! Queued on the main thread, never awaited: menu calls block until the main
-/// thread runs them, so a caller holding a lock (the playtime thread, a command
-/// holding AppState) would deadlock against a main-thread handler waiting for
-/// that same lock.
+// ! Queued on the main thread, never awaited: a caller already holding a lock (the playtime thread, a command holding `AppState`) would deadlock against a main-thread handler waiting on that same lock.
 pub fn refresh_menu(app: &AppHandle) {
     let handle = app.clone();
     let _ = app.run_on_main_thread(move || update_menu(&handle));
@@ -123,7 +119,7 @@ fn update_menu(app: &AppHandle) {
                 _ => None,
             };
             if let Some(key) = key {
-                let _ = item.set_text(rust_i18n::t!(key, locale = locale));
+                let _ = item.set_text(crate::catalog::text(locale, key));
             }
         }
         if id.starts_with(ACCOUNT_PREFIX) || id == "empty" {
@@ -141,12 +137,12 @@ fn update_menu(app: &AppHandle) {
         )
     };
 
-    let mut position = 3; // after Open, Refresh and the first separator
+    let mut position = 3; // ! after Open, Refresh and the first separator
     if accounts.is_empty() {
         if let Ok(item) = MenuItem::with_id(
             app,
             "empty",
-            rust_i18n::t!("tray_no_accounts", locale = locale),
+            crate::catalog::text(locale, "tray_no_accounts"),
             false,
             None::<&str>,
         ) {
@@ -158,7 +154,7 @@ fn update_menu(app: &AppHandle) {
     for (index, account) in accounts.iter().enumerate() {
         let label = account_label(account, index + 1, masked, locale);
         let id = format!("{ACCOUNT_PREFIX}{}", account.steam_id);
-        let is_current = is_current_account(account, &auto_login_user);
+        let is_current = steam_core::model::is_selected_account(account, &auto_login_user);
 
         let Ok(item) =
             tauri::menu::CheckMenuItem::with_id(app, id, label, true, is_current, None::<&str>)
@@ -172,12 +168,6 @@ fn update_menu(app: &AppHandle) {
     }
 }
 
-/// An account without a login name never matches: an empty AutoLoginUser would
-/// otherwise mark every such entry as the current one.
-fn is_current_account(account: &steam_core::SteamAccount, auto_login_user: &str) -> bool {
-    !account.account_name.is_empty() && account.account_name.eq_ignore_ascii_case(auto_login_user)
-}
-
 fn account_label(
     account: &steam_core::SteamAccount,
     index: usize,
@@ -188,7 +178,7 @@ fn account_label(
         return if !account.persona_name.is_empty() && account.persona_name != account.account_name {
             account.persona_name.clone()
         } else {
-            rust_i18n::t!("tray_account", locale = locale, index = index).to_string()
+            crate::catalog::account_label(locale, index)
         };
     }
 
@@ -207,7 +197,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
             refresh_menu(app);
             let _ = app.emit("accounts-changed", ());
         }
-        "quit" => app.exit(0),
+        "quit" => crate::state::request_exit(app),
         other if other.starts_with(ACCOUNT_PREFIX) => {
             let steam_id = other[ACCOUNT_PREFIX.len()..].to_string();
             if app.state::<AppState>().is_switching() {
@@ -215,8 +205,7 @@ fn handle_menu_event(app: &AppHandle, id: &str) {
                 return;
             }
 
-            // The tray never switches on its own: the interface asks for the
-            // confirmation, so both paths behave the same.
+            // ! The tray never switches on its own: the interface asks for the confirmation, so both paths behave the same.
             crate::show_main_window(app);
             let _ = app.emit("switch-requested", steam_id);
         }

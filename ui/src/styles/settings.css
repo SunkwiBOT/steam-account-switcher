@@ -1,7 +1,6 @@
 .settings-list {
   display: flex;
   flex-direction: column;
-  /* Flex children would otherwise shrink to nothing inside the dialog. */
   flex: 0 0 auto;
   gap: 4px;
   max-height: 190px;

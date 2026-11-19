@@ -1,23 +1,13 @@
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, ts_rs::TS)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum InstallKind {
-    /// Linux distribution package or upstream tarball (`~/.steam`, `~/.local/share/Steam`).
+    // ! Linux distribution package or upstream tarball (`~/.steam`, `~/.local/share/Steam`).
     Native,
     Flatpak,
     Snap,
     Windows,
-}
-
-impl InstallKind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            InstallKind::Native => "native",
-            InstallKind::Flatpak => "flatpak",
-            InstallKind::Snap => "snap",
-            InstallKind::Windows => "windows",
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -66,12 +56,31 @@ impl SteamAccount {
     }
 }
 
-/// Steam keeps `Timestamp` as a unix epoch written in the client's local time.
+// ! Fixed placeholders shown instead of a sign-in name when the privacy toggle hides it and no persona name exists to show in its place.
+pub const MASKED_LABEL: &str = "******";
+pub const MASKED_INITIAL: &str = "*";
+
+pub fn masked_identity(account: &SteamAccount, masked: bool) -> (String, String) {
+    if masked && account.persona_name.is_empty() {
+        (MASKED_LABEL.to_string(), MASKED_INITIAL.to_string())
+    } else {
+        (account.display_name().to_string(), account.avatar_initial())
+    }
+}
+
+// ! `AutoLoginUser` alone can lag behind a half-finished switch; a selected account also needs `loginusers.vdf`'s `MostRecent` flag.
+pub fn is_selected_account(account: &SteamAccount, auto_login_user: &str) -> bool {
+    account.most_recent
+        && !account.account_name.is_empty()
+        && account.account_name.eq_ignore_ascii_case(auto_login_user)
+}
+
+// ! Steam keeps `Timestamp` as a unix epoch written in the client's local time.
 pub fn parse_timestamp(value: &str) -> Option<i64> {
     value.trim().parse::<i64>().ok().filter(|value| *value > 0)
 }
 
-/// Steam writes `"1"`/`"0"`; older clients used `true`/`false`.
+// ! Steam writes `"1"`/`"0"`; older clients used `true`/`false`.
 pub fn parse_vdf_bool(value: &str) -> bool {
     matches!(
         value.trim().to_ascii_lowercase().as_str(),
@@ -79,10 +88,13 @@ pub fn parse_vdf_bool(value: &str) -> bool {
     )
 }
 
-/// Resolves `~` and canonicalizes without requiring the path to exist.
 pub fn resolve(path: &Path) -> PathBuf {
     let expanded = expand_home(path);
     expanded.canonicalize().unwrap_or(expanded)
+}
+
+pub fn same_path(left: &str, right: &str) -> bool {
+    resolve(Path::new(left)) == resolve(Path::new(right))
 }
 
 pub fn expand_home(path: &Path) -> PathBuf {

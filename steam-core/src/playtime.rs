@@ -5,8 +5,7 @@ use crate::processes::ProcessFacts;
 
 pub const CHECKPOINT_INTERVAL: f64 = 30.0;
 
-/// Leading bytes of the log that identify it. Rotation is detected when they
-/// change, which works on every platform (Windows has no inode in std).
+// ! Leading bytes of the log that identify it. Rotation is detected when they change, which works on every platform (Windows has no inode in std).
 const LOG_HEAD_SIZE: u64 = 256;
 
 pub fn installation_key(installation: &SteamInstallation) -> String {
@@ -15,7 +14,7 @@ pub fn installation_key(installation: &SteamInstallation) -> String {
     format!("{:x}", Sha1::digest(key.as_os_str().as_encoded_bytes()))
 }
 
-/// Events older than the app start are only trusted when the process is alive.
+// ! Events older than the app start are only trusted when the process is alive.
 pub const FRESH_EVENT_TOLERANCE: f64 = 5.0;
 const READ_CHUNK_SIZE: u64 = 4 * 1024 * 1024;
 const DISCOVERY_READ_SIZE: u64 = 16 * 1024 * 1024;

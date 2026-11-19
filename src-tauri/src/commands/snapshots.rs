@@ -1,6 +1,8 @@
 use super::dto::*;
-use crate::{base64, state::AppState};
+use crate::{avatars, state::AppState};
 use steam_core::metadata::RankChoice;
+use steam_core::model::{is_selected_account, masked_identity, MASKED_LABEL};
+use steam_core::playtime::ActiveGame;
 use steam_core::ranks;
 use tauri::State;
 
@@ -10,7 +12,7 @@ fn rank_templates() -> Vec<RankTemplateDto> {
         .map(|template| RankTemplateDto {
             id: template.id.to_string(),
             label: template.label.to_string(),
-            kind: template.kind.as_str().to_string(),
+            kind: template.kind,
             max_rating: template.max_rating,
             ranks: template
                 .ranks
@@ -24,6 +26,23 @@ fn rank_templates() -> Vec<RankTemplateDto> {
         .collect()
 }
 
+fn active_game_dto(game: ActiveGame) -> ActiveGameDto {
+    ActiveGameDto {
+        app_id: game.app_id,
+        name: game.name,
+        account_id: game.account_id,
+        elapsed_seconds: game.elapsed_seconds,
+    }
+}
+
+fn masked_account_name(account: &steam_core::model::SteamAccount, masked: bool) -> String {
+    if masked {
+        MASKED_LABEL.to_string()
+    } else {
+        account.account_name.clone()
+    }
+}
+
 pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
     let accounts = state.display_accounts();
     let inner = state.lock();
@@ -31,6 +50,7 @@ pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
     let tracker = inner.tracker.clone();
     let ranks = inner.ranks.clone();
     let masked = inner.masked;
+    let accounts_error = inner.accounts_error.map(|code| code.as_str().to_string());
     let steam_ids_visible = inner.steam_ids_visible;
     let local_ids: Vec<String> = inner
         .accounts
@@ -52,8 +72,7 @@ pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
     });
     let manager = inner.manager.clone();
     drop(inner);
-    // Enumerating every process takes a while: do it after releasing the
-    // state lock so the tray and the window close handler never wait on it.
+    // ! Enumerating every process takes a while, so it runs after releasing the state lock to avoid blocking the tray and window close handler.
     let steam_running = manager
         .as_ref()
         .map(|manager| manager.is_steam_running())
@@ -75,21 +94,14 @@ pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
                         (
                             account.steam_id.clone(),
                             tracker.account_seconds(&account.steam_id, true),
-                            tracker
-                                .history_statistics(Some(&account.steam_id))
-                                .session_count,
+                            tracker.session_count(Some(&account.steam_id)),
                         )
                     })
                     .collect();
                 let active = tracker
                     .active_games()
                     .into_iter()
-                    .map(|game| ActiveGameDto {
-                        app_id: game.app_id,
-                        name: game.name,
-                        account_id: game.account_id,
-                        elapsed_seconds: game.elapsed_seconds,
-                    })
+                    .map(active_game_dto)
                     .collect();
                 let machine = tracker.global_seconds(true);
                 let ready = tracker.enabled() && tracker.log_path().exists();
@@ -111,8 +123,8 @@ pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
                     value: ranks::UNRANKED.to_string(),
                 });
             let kind = ranks::template(&choice.template)
-                .map(|template| template.kind.as_str())
-                .unwrap_or(ranks::RankKind::Tiered.as_str());
+                .map(|template| template.kind)
+                .unwrap_or(ranks::RankKind::Tiered);
             let family = ranks::family(&choice.template, &choice.value);
             let playtime = per_account
                 .iter()
@@ -121,35 +133,20 @@ pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
                 .unwrap_or((0.0, 0));
 
             let is_local = local_ids.contains(&account.steam_id);
-            // A missing persona means the sign-in name would be shown; the interface blurs it.
-            let hidden_name = masked && account.persona_name.is_empty();
+            let (display_name, initial) = masked_identity(account, masked);
             AccountDto {
                 steam_id: account.steam_id.clone(),
-                account_name: if masked {
-                    "******".to_string()
-                } else {
-                    account.account_name.clone()
-                },
+                account_name: masked_account_name(account, masked),
                 persona_name: account.persona_name.clone(),
-                display_name: if hidden_name {
-                    "******".to_string()
-                } else {
-                    account.display_name().to_string()
-                },
-                initial: if hidden_name {
-                    "*".to_string()
-                } else {
-                    account.avatar_initial()
-                },
-                avatar: account.avatar_path.as_deref().and_then(base64::data_url),
+                display_name,
+                initial,
+                avatar: account.avatar_path.as_deref().and_then(avatars::data_url),
                 rank: choice.value.clone(),
                 rank_template: choice.template.clone(),
-                rank_kind: kind.to_string(),
+                rank_kind: kind,
                 rank_family: family,
                 last_login_seconds: account.timestamp.unwrap_or(0),
-                is_current: is_local
-                    && !account.account_name.is_empty()
-                    && account.account_name.eq_ignore_ascii_case(&auto_login_user),
+                is_current: is_local && is_selected_account(account, &auto_login_user),
                 is_local,
                 session_count: playtime.1,
                 color: settings_data
@@ -191,12 +188,12 @@ pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
                 .count(),
         })
         .collect();
+
     let retained_count = account_dtos
         .iter()
         .filter(|account| !account.is_local)
         .count();
     if retained_count > 0 {
-        // The read-only Steam Guard folder always comes first.
         folders.insert(
             0,
             FolderDto {
@@ -217,7 +214,7 @@ pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
             resolved_language: settings_data.language.resolved().to_string(),
             show_installation_selector: settings_data.show_installation_selector,
             tracking_enabled: settings_data.tracking_enabled,
-            tracking_history: crate::tracking::tracking_history(
+            tracking_history: super::tracking::tracking_history(
                 &state.database,
                 &detected.iter().chain(&custom).cloned().collect::<Vec<_>>(),
             ),
@@ -233,13 +230,14 @@ pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
                 .map(|installation| {
                     let root = crate::state::root_key(installation);
                     InstallationSettingDto {
-                        kind: installation.kind.as_str().to_string(),
+                        kind: installation.kind,
                         custom: settings_data.is_custom(&root),
                         hidden: settings_data.is_hidden(&root),
                         root,
                     }
                 })
                 .collect(),
+            vault_offer_dismissed: settings_data.vault_offer_dismissed,
         },
         revision,
         installations: installations
@@ -247,13 +245,13 @@ pub(crate) fn build_snapshot(state: &AppState) -> SnapshotDto {
             .enumerate()
             .map(|(index, installation)| InstallationDto {
                 index,
-                kind: installation.kind.as_str().to_string(),
+                kind: installation.kind,
                 root: installation.root.display().to_string(),
             })
             .collect(),
         selected,
         accounts: account_dtos,
-        auto_login_user,
+        accounts_error,
         masked,
         steam_ids_visible,
         machine_seconds,
@@ -301,9 +299,7 @@ pub fn playtime_snapshot(state: State<'_, AppState>) -> PlaytimeSnapshotDto {
         .iter()
         .map(|account| {
             let seconds = tracker.account_seconds(&account.steam_id, true);
-            let session_count = tracker
-                .history_statistics(Some(&account.steam_id))
-                .session_count;
+            let session_count = tracker.session_count(Some(&account.steam_id));
             AccountPlaytimeCellDto {
                 steam_id: account.steam_id.clone(),
                 seconds,
@@ -320,12 +316,7 @@ pub fn playtime_snapshot(state: State<'_, AppState>) -> PlaytimeSnapshotDto {
         active_games: tracker
             .active_games()
             .into_iter()
-            .map(|game| ActiveGameDto {
-                app_id: game.app_id,
-                name: game.name,
-                account_id: game.account_id,
-                elapsed_seconds: game.elapsed_seconds,
-            })
+            .map(active_game_dto)
             .collect(),
     }
 }
@@ -334,14 +325,6 @@ pub fn playtime_snapshot(state: State<'_, AppState>) -> PlaytimeSnapshotDto {
 pub fn refresh(app: tauri::AppHandle, state: State<'_, AppState>) -> SnapshotDto {
     crate::logging::write("action=refresh status=requested");
     state.refresh_accounts();
-    crate::tray::refresh_menu(&app);
-    build_snapshot(&state)
-}
-
-#[tauri::command(async)]
-pub fn reload_installations(app: tauri::AppHandle, state: State<'_, AppState>) -> SnapshotDto {
-    crate::logging::write("action=reload_installations status=requested");
-    state.reload_installations();
     crate::tray::refresh_menu(&app);
     build_snapshot(&state)
 }

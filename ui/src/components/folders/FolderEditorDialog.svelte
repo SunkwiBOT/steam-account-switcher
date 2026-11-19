@@ -2,7 +2,9 @@
   import FolderEditor from "./FolderEditor.svelte";
   import { t, rich } from "../../lib/i18n/i18n.svelte";
   import { closeFolderEditor, folderEditor } from "../../lib/state/dialogs.svelte";
-  import { folders, run, showToast } from "../../lib/state/state.svelte";
+  import { run, showToast } from "../../lib/state/state.svelte";
+  import { folders } from "../../lib/state/folders.svelte";
+  import { ToastKind } from "../../lib/state/state.constants";
 
   const folder = $derived(folders().find((item) => item.id === folderEditor.folderId) ?? null);
 
@@ -21,9 +23,9 @@
       icon: value.icon,
     });
     if (result && renamed)
-      showToast(rich(t.folder_rename_success, { folder: value.name }), true, null, {
-        ...current,
-        name: value.name,
+      showToast(ToastKind.SUCCESS, t.toast_folder_renamed_title(), {
+        description: rich(t.folder_rename_success, { folder: value.name }),
+        folder: { ...current, name: value.name },
       });
     return Boolean(result);
   };

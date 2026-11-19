@@ -2,6 +2,7 @@
   import { t } from "../../lib/i18n/i18n.svelte";
 
   import AsyncIcon from "../ui/AsyncIcon.svelte";
+  import { Switch } from "$lib/components/ui/switch/index.js";
 
   type SettingTogglePropsType = {
     label: string;
@@ -13,18 +14,12 @@
   let { label, checked, disabled = false, onchange }: SettingTogglePropsType = $props();
   let busy = $state(false);
 
-  const change = async (event: Event): Promise<void> => {
-    const input = event.currentTarget;
-    if (!(input instanceof HTMLInputElement)) return;
-    if (busy || disabled) {
-      input.checked = checked;
-      return;
-    }
+  const change = async (next: boolean): Promise<void> => {
+    if (busy || disabled) return;
     busy = true;
     try {
-      await onchange(input.checked);
+      await onchange(next);
     } finally {
-      input.checked = checked;
       busy = false;
     }
   };
@@ -35,14 +30,11 @@
   <span class="setting-control">
     {#if busy}<AsyncIcon size={16} /><span class="sr-only" role="status">{t.common_saving()}</span
       >{/if}
-    <input
-      class="switch"
-      type="checkbox"
-      {checked}
+    <Switch
+      bind:checked={() => checked, (next) => void change(next)}
       hidden={busy}
       disabled={disabled || busy}
       aria-busy={busy}
-      onchange={change}
     />
   </span>
 </label>

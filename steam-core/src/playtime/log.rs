@@ -93,8 +93,7 @@ pub(super) fn probe_event_process(
         return facts;
     }
 
-    // A live process whose start time is far from the launch event is a reused
-    // pid, not this session's game.
+    // ! A live process whose start time is far from the launch event is a reused pid, not this session's game.
     match facts.start_time {
         Some(created_at) if (created_at - event.timestamp).abs() > 180.0 => ProcessFacts {
             running: false,
@@ -122,8 +121,7 @@ pub(super) fn recent_game_events(log_path: &Path) -> Result<Vec<GameProcessEvent
         .take(DISCOVERY_READ_SIZE)
         .read_to_end(&mut data)
         .map_err(|error| SteamError::io("Read running Steam games", error))?;
-    // The window can start inside a multi-byte character; that partial line is
-    // skipped below, so lossy decoding never costs the whole file.
+    // ! The window can start inside a multi-byte character; that partial line is skipped below, so lossy decoding never costs the whole file.
     let text = String::from_utf8_lossy(&data);
     let mut events = Vec::new();
     for (index, line) in text.lines().enumerate() {
@@ -139,7 +137,7 @@ pub(super) fn recent_game_events(log_path: &Path) -> Result<Vec<GameProcessEvent
     Ok(events)
 }
 
-/// Read-only check independent of playtime tracking.
+// ! Read-only check independent of playtime tracking.
 pub fn running_game_events(
     log_path: &Path,
     probe: &dyn Fn(u32) -> ProcessFacts,
@@ -164,7 +162,7 @@ pub fn running_game_events(
         .collect())
 }
 
-/// Steam writes `..., exit code 0` on most platforms.
+// ! Steam writes `..., exit code 0` on most platforms.
 pub(super) fn parse_exit_code(rest: &str) -> Option<i32> {
     let marker = rest.find("exit code ")?;
     let value = &rest[marker + "exit code ".len()..];
@@ -184,7 +182,7 @@ pub(super) fn take_number(input: &str) -> Option<(&str, &str)> {
     Some((&input[..end], &input[end..]))
 }
 
-/// Steam logs local time without a zone: `2026-01-10 12:00:00`.
+// ! Steam logs local time without a zone: `2026-01-10 12:00:00`.
 pub(super) fn parse_log_timestamp(value: &str) -> Option<f64> {
     let format = time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
     let primitive = PrimitiveDateTime::parse(value, &format).ok()?;
@@ -210,7 +208,7 @@ pub(super) fn file_identity(metadata: &std::fs::Metadata) -> (u64, u64, f64) {
     (metadata.dev(), metadata.ino(), modified)
 }
 
-// std exposes no file index on Windows; rotation is caught by the head fingerprint.
+// ! std exposes no file index on Windows; rotation is caught by the head fingerprint.
 #[cfg(not(unix))]
 pub(super) fn file_identity(metadata: &std::fs::Metadata) -> (u64, u64, f64) {
     let modified = metadata

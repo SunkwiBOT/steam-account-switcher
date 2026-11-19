@@ -5,14 +5,15 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+default-run = "accountswitcher"
 repository.workspace = true
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+serde_json = { workspace = true }
 
 [features]
-# ! Without it Tauri compiles in development mode and loads `devUrl` instead of
-# the interface embedded in the binary. Required for release builds.
+# ! Without it Tauri compiles in development mode and loads `devUrl` instead of the embedded interface, required for release builds.
 custom-protocol = ["tauri/custom-protocol"]
 
 [dependencies]
@@ -26,10 +27,15 @@ tauri-plugin-dialog = "2"
 tauri-plugin-clipboard-manager = "2"
 serde = { workspace = true }
 serde_json = { workspace = true }
-rusqlite = { version = "0.40", features = ["bundled"] }
-zeroize = "1"
-rust-i18n = "3"
+rusqlite = { workspace = true }
+zeroize = { workspace = true }
+ts-rs = { workspace = true }
 sys-locale = "0.3"
+# ! Same crate `tauri-plugin-updater` already uses internally to verify the installer
+# artifacts: reused here to re-verify the portable executable before it replaces itself.
+minisign-verify = "0.3"
+base64 = "0.22"
+rfd = { version = "0.17", default-features = false, features = ["gtk3"] }
 
 
 # ! Gives the window its app id / WM class on Linux, so the desktop pairs it
@@ -37,6 +43,11 @@ sys-locale = "0.3"
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
 glib = "0.18"
+gio = "0.18"
+
+[lib]
+name = "steam_account_switcher_lib"
+path = "src/lib.rs"
 
 [[bin]]
 name = "accountswitcher"

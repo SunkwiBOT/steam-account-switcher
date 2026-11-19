@@ -1,6 +1,5 @@
 <script lang="ts">
   import DialogHeader from "../dialogs/DialogHeader.svelte";
-  import { focusTrap } from "../../lib/actions/focus-trap";
   import MessageText from "../ui/MessageText.svelte";
   import { t, rich } from "../../lib/i18n/i18n.svelte";
 
@@ -12,83 +11,65 @@
     downloadUpdate,
     updateProgressPercent,
     updateProgressText,
-  } from "../../lib/actions/actions.svelte";
+  } from "../../lib/actions/updates.svelte";
   import { app } from "../../lib/state/state.svelte";
   import { Check, Clock, Download, Power } from "@lucide/svelte";
+  import AppDialog from "../dialogs/AppDialog.svelte";
+  import { DialogContent } from "$lib/components/ui/dialog/index.js";
 
   const percent = $derived(updateProgressPercent());
   const uid = $props.id();
 
-  // Same rule as the "Later" buttons: the dialog can be put away at any time
-  // except while the update is being installed.
   const dismiss = (): void => {
     if (app.updateStage === UpdateStage.INSTALLING) return;
     app.updateDialog = false;
   };
+
+  const open = $derived(
+    (Boolean(app.updateStage) && app.updateDialog) || (app.updateDialog && Boolean(app.update)),
+  );
 </script>
 
-{#if app.updateStage && app.updateDialog}
-  <div class="modal">
-    <div class="modal-backdrop"></div>
-    <div
-      class="dialog small"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={`${uid}-title`}
-      tabindex="-1"
-      use:focusTrap={{ onEscape: dismiss }}
-    >
-      {#if app.updateStage === UpdateStage.DOWNLOADED || app.updateStage === UpdateStage.INSTALLING}
-        <DialogHeader
-          id={`${uid}-title`}
-          title={rich(t.updates_downloaded_title, { version: app.updateVersion })}
-          icon={Check}
+<AppDialog {open} onclose={dismiss}>
+  <DialogContent showCloseButton={false} class="sm:max-w-md" aria-labelledby={`${uid}-title`}>
+    {#if app.updateStage === UpdateStage.DOWNLOADED || app.updateStage === UpdateStage.INSTALLING}
+      <DialogHeader
+        id={`${uid}-title`}
+        title={rich(t.updates_downloaded_title, { version: app.updateVersion })}
+        icon={Check}
+      />
+      <p class="dialog-text">{t.updates_restart_description()}</p>
+      <div class="progress"><span class="progress-bar" style="width:100%"></span></div>
+      <footer class="dialog-foot">
+        <button
+          class="button"
+          type="button"
+          disabled={app.updateStage === UpdateStage.INSTALLING}
+          onclick={() => (app.updateDialog = false)}
+        >
+          <Clock size={15} />
+          {t.updates_restart_later()}
+        </button>
+        <ActionButton
+          className="button primary"
+          icon={Power}
+          label={t.updates_restart_now()}
+          busyLabel={t.common_restarting()}
+          busy={app.updateStage === UpdateStage.INSTALLING}
+          onclick={applyUpdate}
         />
-        <p class="dialog-text">{t.updates_restart_description()}</p>
-        <div class="progress"><span class="progress-bar" style="width:100%"></span></div>
-        <footer class="dialog-foot">
-          <button
-            class="button"
-            type="button"
-            disabled={app.updateStage === UpdateStage.INSTALLING}
-            onclick={() => (app.updateDialog = false)}
-          >
-            <Clock size={15} />
-            {t.updates_restart_later()}
-          </button>
-          <ActionButton
-            className="button primary"
-            icon={Power}
-            label={t.updates_restart_now()}
-            busyLabel={t.common_restarting()}
-            busy={app.updateStage === UpdateStage.INSTALLING}
-            onclick={applyUpdate}
-          />
-        </footer>
-      {:else}
-        <DialogHeader id={`${uid}-title`} title={t.updates_download_title()} icon={Download} busy />
-        <p class="dialog-text">{updateProgressText()}</p>
-        <div class="progress"><span class="progress-bar" style="width:{percent}%"></span></div>
-        <footer class="dialog-foot">
-          <button class="button" type="button" onclick={() => (app.updateDialog = false)}>
-            <Clock size={15} />
-            {t.common_later()}
-          </button>
-        </footer>
-      {/if}
-    </div>
-  </div>
-{:else if app.updateDialog && app.update}
-  <div class="modal">
-    <div class="modal-backdrop"></div>
-    <div
-      class="dialog small"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={`${uid}-title`}
-      tabindex="-1"
-      use:focusTrap={{ onEscape: dismiss }}
-    >
+      </footer>
+    {:else if app.updateStage !== UpdateStage.IDLE}
+      <DialogHeader id={`${uid}-title`} title={t.updates_download_title()} icon={Download} busy />
+      <p class="dialog-text">{updateProgressText()}</p>
+      <div class="progress"><span class="progress-bar" style="width:{percent}%"></span></div>
+      <footer class="dialog-foot">
+        <button class="button" type="button" onclick={() => (app.updateDialog = false)}>
+          <Clock size={15} />
+          {t.common_later()}
+        </button>
+      </footer>
+    {:else if app.update}
       <DialogHeader
         id={`${uid}-title`}
         title={rich(t.updates_available_title, { version: app.update.version })}
@@ -110,6 +91,6 @@
           ><Download size={15} /> {t.common_download()}</button
         >
       </footer>
-    </div>
-  </div>
-{/if}
+    {/if}
+  </DialogContent>
+</AppDialog>

@@ -2,6 +2,81 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use time::Date;
 
+use ts_rs::TS;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum TrackingMode {
+    // ! The game was already running when tracking started: no launch event seen, `started_at` is an estimate.
+    #[default]
+    Partial,
+    Full,
+}
+
+impl TrackingMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Partial => "PARTIAL",
+            Self::Full => "FULL",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "PARTIAL" => Some(Self::Partial),
+            "FULL" => Some(Self::Full),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum EndReason {
+    ReplacedByNewLaunch,
+    RootProcessExitLog,
+    ProcessMissingAfterRestart,
+    ProcessExit,
+    TrackingDisabled,
+    SteamRunningList,
+    // ! A finished session loaded with no reason recorded.
+    Unknown,
+}
+
+impl EndReason {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::ReplacedByNewLaunch => "REPLACED_BY_NEW_LAUNCH",
+            Self::RootProcessExitLog => "ROOT_PROCESS_EXIT_LOG",
+            Self::ProcessMissingAfterRestart => "PROCESS_MISSING_AFTER_RESTART",
+            Self::ProcessExit => "PROCESS_EXIT",
+            Self::TrackingDisabled => "TRACKING_DISABLED",
+            Self::SteamRunningList => "STEAM_RUNNING_LIST",
+            Self::Unknown => "UNKNOWN",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "REPLACED_BY_NEW_LAUNCH" => Some(Self::ReplacedByNewLaunch),
+            "ROOT_PROCESS_EXIT_LOG" => Some(Self::RootProcessExitLog),
+            "PROCESS_MISSING_AFTER_RESTART" => Some(Self::ProcessMissingAfterRestart),
+            "PROCESS_EXIT" => Some(Self::ProcessExit),
+            "TRACKING_DISABLED" => Some(Self::TrackingDisabled),
+            "STEAM_RUNNING_LIST" => Some(Self::SteamRunningList),
+            "UNKNOWN" => Some(Self::Unknown),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PlaytimeStatus {
+    Running,
+    Finished,
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct GameState {
     pub name: String,
@@ -35,13 +110,13 @@ pub struct SessionRecord {
     pub last_seen_at: Option<f64>,
     pub ended_at: Option<f64>,
     pub duration_seconds: Option<f64>,
-    pub tracking_mode: String,
-    pub end_reason: String,
+    pub tracking_mode: TrackingMode,
+    pub end_reason: Option<EndReason>,
     pub exit_code: Option<i32>,
     pub launch_command: String,
 }
 
-/// Where the log reader stopped. `known` is false until a log has been seen.
+// ! Where the log reader stopped. `known` is false until a log has been seen.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 pub struct LogCursor {
     pub known: bool,
@@ -125,8 +200,8 @@ pub struct SessionPlaytime {
     pub ended_at: Option<f64>,
     pub duration_seconds: f64,
     pub active: bool,
-    pub tracking_mode: String,
-    pub end_reason: String,
+    pub tracking_mode: TrackingMode,
+    pub end_reason: Option<EndReason>,
     pub exit_code: Option<i32>,
     pub root_pid: Option<u32>,
     pub process_create_time: Option<f64>,

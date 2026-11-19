@@ -18,7 +18,7 @@ impl AppState {
         self.lock().unlocked_at = None;
     }
 
-    /// Returns true only when the vault changed from unlocked to locked.
+    // ! Returns true only when the vault changed from unlocked to locked.
     pub fn lock_vault_if_due(&self) -> bool {
         let elapsed = {
             let inner = self.lock();

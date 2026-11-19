@@ -1,17 +1,15 @@
 use super::{Login, CODE_PERIOD_SECONDS};
+use crate::util::now_unix;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, LazyLock};
+use std::time::{Duration, Instant};
 use steamguard::protobufs::steammessages_auth_steamclient::EAuthTokenPlatformType;
 use steamguard::steamapi::{ApiRequest, ApiResponse, BuildableRequest};
 use steamguard::transport::{Transport, TransportError, WebApiTransport};
 use steamguard::userlogin::{DeviceDetails, UserLogin};
 
 pub fn now_seconds() -> u64 {
-    match SystemTime::now().duration_since(UNIX_EPOCH) {
-        Ok(duration) => duration.as_secs(),
-        Err(_) => 0,
-    }
+    now_unix() as u64
 }
 
 pub fn seconds_remaining(time: u64) -> u64 {
@@ -23,16 +21,19 @@ pub fn seconds_remaining(time: u64) -> u64 {
     }
 }
 
-pub fn http_client() -> reqwest::blocking::Client {
+pub const USER_AGENT: &str = concat!("SteamAccountSwitcher/", env!("CARGO_PKG_VERSION"));
+
+static HTTP_CLIENT: LazyLock<reqwest::blocking::Client> = LazyLock::new(|| {
     reqwest::blocking::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(20))
         .timeout(std::time::Duration::from_secs(30))
-        .user_agent(format!(
-            "SteamAccountSwitcher/{}",
-            env!("CARGO_PKG_VERSION")
-        ))
+        .user_agent(USER_AGENT)
         .build()
         .unwrap_or_else(|_| reqwest::blocking::Client::new())
+});
+
+pub fn http_client() -> reqwest::blocking::Client {
+    HTTP_CLIENT.clone()
 }
 
 pub fn transport() -> WebApiTransport {
@@ -46,12 +47,17 @@ pub(super) fn hostname() -> String {
         .unwrap_or_else(|_| "desktop".to_string())
 }
 
+// ! Steam's `EOSType` for "unknown", used by unofficial clients not tied to a specific OS build.
+const OS_TYPE_UNKNOWN: i32 = -500;
+// ! Steam's `EGamingDeviceType` for a standard desktop PC.
+const GAMING_DEVICE_TYPE_PC: u32 = 528;
+
 pub(super) fn device_details() -> DeviceDetails {
     DeviceDetails {
         friendly_name: format!("{} (Steam Account Switcher)", hostname()),
         platform_type: EAuthTokenPlatformType::k_EAuthTokenPlatformType_MobileApp,
-        os_type: -500,
-        gaming_device_type: 528,
+        os_type: OS_TYPE_UNKNOWN,
+        gaming_device_type: GAMING_DEVICE_TYPE_PC,
     }
 }
 
@@ -66,8 +72,7 @@ pub fn new_login(control: Arc<AtomicBool>) -> Login {
     )
 }
 
-/// Stops the library's blocking poll loop at the next request after cancelling
-/// or timing out. The control remains in the store while Login is checked out.
+// ! Stops steamguard's blocking poll loop at the next request after cancelling or timing out.
 #[derive(Debug, Clone)]
 pub struct LoginTransport {
     pub(super) inner: WebApiTransport,

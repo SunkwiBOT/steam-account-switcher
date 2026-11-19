@@ -6,12 +6,12 @@
   import { IdentityField } from "../accounts/AccountIdentity.constants";
   import ActionButton from "../ui/ActionButton.svelte";
   import type { SteamGuardControllerType } from "../../lib/steam-guard/steam-guard.svelte";
-  import type { AccountType } from "../../lib/types";
+  import type { AccountDto } from "../../lib/bindings/AccountDto";
   import { ShieldOff, Lock, Download } from "@lucide/svelte";
   import { app } from "../../lib/state/state.svelte";
   import { BackupMode } from "../../lib/vault/backup.constants";
   import AccountIdentity from "../accounts/AccountIdentity.svelte";
-  type SteamGuardSecurityPropsType = { controller: SteamGuardControllerType; entry: AccountType };
+  type SteamGuardSecurityPropsType = { controller: SteamGuardControllerType; entry: AccountDto };
 
   let { controller, entry }: SteamGuardSecurityPropsType = $props();
 </script>

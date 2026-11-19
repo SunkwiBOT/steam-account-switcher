@@ -1,10 +1,11 @@
-import { ErrorApiMessage } from "../errors/errors.constants";
+import type { ConfirmationKind as ConfirmationKindDto } from "../bindings/ConfirmationKind";
+import type { UiErrorCode } from "../errors/errors.svelte";
 import { GuardAction, SteamGuardField } from "./steam-guard.constants";
 import type { GuardBusyActionType } from "./steam-guard.constants";
 
 export const fieldForGuardAction = (
   action: GuardBusyActionType,
-  code: ErrorApiMessage,
+  code: UiErrorCode,
   needsCode: boolean,
 ): SteamGuardField => {
   switch (action) {
@@ -18,15 +19,10 @@ export const fieldForGuardAction = (
     case GuardAction.CANCEL_LOGIN:
     case GuardAction.LINK:
       return SteamGuardField.LOGIN;
-    case GuardAction.BROWSE:
-      return SteamGuardField.IMPORT_FILE;
     case GuardAction.IMPORT:
-      if (
-        code === ErrorApiMessage.BACKUP_PASSWORD_REQUIRED ||
-        code === ErrorApiMessage.BACKUP_DECRYPTION_FAILED
-      )
+      if (code === "BACKUP_PASSWORD_REQUIRED" || code === "BACKUP_DECRYPTION_FAILED")
         return SteamGuardField.IMPORT_PASSWORD;
-      return SteamGuardField.IMPORT_FILE;
+      return SteamGuardField.IMPORT;
     case GuardAction.FINALIZE:
     case GuardAction.TRANSFER_FINISH:
       return SteamGuardField.LINK_CODE;
@@ -45,10 +41,10 @@ export const fieldForGuardAction = (
   }
 };
 
-//! A response only lands when neither the session (generation) nor the
-//! confirmation list (revision) moved on while the request was in flight.
 export const isCurrentResponse = (
   requested: { generation: number; revision: number },
   current: { generation: number; revision: number },
 ): boolean =>
   requested.generation === current.generation && requested.revision === current.revision;
+
+export const requiresExtraConfirmation = (kind: ConfirmationKindDto): boolean => kind !== "TRADE";

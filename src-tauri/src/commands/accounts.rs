@@ -1,4 +1,7 @@
-use super::{build_snapshot, dto::SnapshotDto};
+use super::{
+    build_snapshot,
+    dto::{SnapshotDto, SwitchResultDto},
+};
 use crate::state::AppState;
 use steam_core::error_code::ErrorCode;
 use steam_core::model::SteamAccount;
@@ -106,7 +109,7 @@ pub async fn switch_account(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     steam_id: String,
-) -> Result<SnapshotDto, String> {
+) -> Result<SwitchResultDto, String> {
     crate::logging::run_async("switch_account", async {
         let operation = state.begin_steam_operation()?;
         let manager = state
@@ -115,18 +118,10 @@ pub async fn switch_account(
             .clone()
             .ok_or_else(|| ErrorCode::NoSteamInstallation.as_str().to_string())?;
 
-        let running = manager.is_steam_running();
-        crate::logging::write(&format!("action=switch_account steam_running={running}"));
-
         let identifier = steam_id.clone();
         let result = tauri::async_runtime::spawn_blocking(move || {
             let _operation = operation;
-            if manager.find_account(&identifier)?.is_none() {
-                return Err(steam_core::error::SteamError::config(
-                    ErrorCode::AccountNotLocal,
-                ));
-            }
-            manager.switch_account(&identifier, true)
+            manager.switch_account(&identifier)
         })
         .await
         .map_err(|_| ErrorCode::WorkerFailed.to_string())?;
@@ -134,13 +129,15 @@ pub async fn switch_account(
         match result {
             Ok(outcome) => {
                 crate::logging::write(&format!(
-                    "action=switch_account already_active={} started={}",
-                    outcome.already_active(),
-                    outcome.started()
+                    "action=switch_account outcome={:?}",
+                    outcome.kind()
                 ));
                 state.refresh_accounts();
                 crate::tray::refresh_menu(&app);
-                Ok(build_snapshot(&state))
+                Ok(SwitchResultDto {
+                    snapshot: build_snapshot(&state),
+                    outcome: outcome.kind(),
+                })
             }
             Err(error) => Err(error.to_string()),
         }
@@ -154,9 +151,8 @@ pub async fn remove_account(
     state: State<'_, AppState>,
     steam_id: String,
     cleanup_userdata: bool,
-    confirmed: bool,
 ) -> Result<SnapshotDto, String> {
-    let snapshot = remove_account_for(&state, &steam_id, cleanup_userdata, confirmed).await?;
+    let snapshot = remove_account_for(&state, &steam_id, cleanup_userdata).await?;
     crate::tray::refresh_menu(&app);
     Ok(snapshot)
 }
@@ -165,12 +161,8 @@ async fn remove_account_for(
     state: &AppState,
     steam_id: &str,
     cleanup_userdata: bool,
-    confirmed: bool,
 ) -> Result<SnapshotDto, String> {
     crate::logging::run_async("remove_account", async {
-        if !confirmed {
-            return Err(ErrorCode::ConfirmationRequired.as_str().to_string());
-        }
         let operation = state.begin_steam_operation()?;
         state.display_accounts();
         let manager = state
@@ -203,22 +195,14 @@ pub async fn forget_saved_account(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
     steam_id: String,
-    confirmed: bool,
 ) -> Result<SnapshotDto, String> {
-    let snapshot = forget_saved_account_for(&state, &steam_id, confirmed).await?;
+    let snapshot = forget_saved_account_for(&state, &steam_id).await?;
     crate::tray::refresh_menu(&app);
     Ok(snapshot)
 }
 
-async fn forget_saved_account_for(
-    state: &AppState,
-    steam_id: &str,
-    confirmed: bool,
-) -> Result<SnapshotDto, String> {
+async fn forget_saved_account_for(state: &AppState, steam_id: &str) -> Result<SnapshotDto, String> {
     crate::logging::run_async("forget_saved_account", async {
-        if !confirmed {
-            return Err(ErrorCode::ConfirmationRequired.as_str().to_string());
-        }
         let operation = state.begin_steam_operation()?;
         let manager = {
             let inner = state.lock();
@@ -237,7 +221,7 @@ async fn forget_saved_account_for(
             let _operation = operation;
             if let Some(manager) = manager {
                 if manager
-                    .find_account(&id)
+                    .find_by_steam_id(&id)
                     .map_err(|error| error.to_string())?
                     .is_some()
                 {
@@ -268,31 +252,6 @@ async fn forget_saved_account_for(
             }
         }
         Ok(build_snapshot(state))
-    })
-    .await
-}
-
-#[tauri::command]
-pub async fn restart_steam(state: State<'_, AppState>) -> Result<SnapshotDto, String> {
-    crate::logging::run_async("restart_steam", async {
-        let operation = state.begin_steam_operation()?;
-        let manager = state
-            .lock()
-            .manager
-            .clone()
-            .ok_or_else(|| ErrorCode::NoSteamInstallation.as_str().to_string())?;
-
-        let result = tauri::async_runtime::spawn_blocking(move || {
-            let _operation = operation;
-            manager.restart_steam()
-        })
-        .await
-        .map_err(|_| ErrorCode::WorkerFailed.to_string())?;
-
-        match result {
-            Ok(()) => Ok(build_snapshot(&state)),
-            Err(error) => Err(error.to_string()),
-        }
     })
     .await
 }

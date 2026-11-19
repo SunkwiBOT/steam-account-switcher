@@ -1,0 +1,46 @@
+name: Feature request
+description: An idea to make the app better.
+labels: ["enhancement"]
+body:
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched the existing issues and found none about this.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The need
+      description: What you want to do, and what gets in the way today.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Your idea
+      description: How the app could do it. Screenshots or sketches are welcome.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Where you would use it.
+      options:
+        - Windows
+        - Linux
+        - Both
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Other ways you considered
+    validations:
+      required: false

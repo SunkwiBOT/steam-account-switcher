@@ -5,11 +5,11 @@
   import { GuardAction, SteamGuardField } from "../../lib/steam-guard/steam-guard.constants";
   import ActionButton from "../ui/ActionButton.svelte";
   import type { SteamGuardControllerType } from "../../lib/steam-guard/steam-guard.svelte";
-  import type { AccountType } from "../../lib/types";
-  import { FileSearch, Upload } from "@lucide/svelte";
+  import type { AccountDto } from "../../lib/bindings/AccountDto";
+  import { Upload } from "@lucide/svelte";
   import PasswordInput from "../ui/PasswordInput.svelte";
   import FormError from "../ui/FormError.svelte";
-  type SteamGuardImportPropsType = { controller: SteamGuardControllerType; entry: AccountType };
+  type SteamGuardImportPropsType = { controller: SteamGuardControllerType; entry: AccountDto };
 
   let { controller, entry }: SteamGuardImportPropsType = $props();
   const uid = $props.id();
@@ -30,34 +30,6 @@
       )}
     />
   </p>
-  <div class="steamguard-row">
-    <div class="steamguard-field">
-      <input
-        class="input"
-        readonly
-        aria-label={t.guard_import_file_label()}
-        aria-invalid={Boolean(controller.errorFor(SteamGuardField.IMPORT_FILE))}
-        aria-describedby={controller.errorFor(SteamGuardField.IMPORT_FILE)
-          ? `${uid}-file-error`
-          : undefined}
-        placeholder={t.common_file_empty()}
-        value={controller.importPath}
-      />
-      <FormError
-        id={`${uid}-file-error`}
-        message={controller.errorFor(SteamGuardField.IMPORT_FILE)}
-      />
-    </div>
-    <ActionButton
-      icon={FileSearch}
-      label={t.common_browse()}
-      busyLabel={t.common_opening()}
-      busy={controller.busyAction === GuardAction.BROWSE}
-      disabled={controller.busy}
-      className="button"
-      onclick={controller.pickFile}
-    />
-  </div>
   <div class="steamguard-row">
     <div class="steamguard-field">
       <PasswordInput

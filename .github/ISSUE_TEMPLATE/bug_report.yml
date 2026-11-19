@@ -1,0 +1,81 @@
+name: Bug report
+description: Something does not work as it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report it. For a security problem, do not open an issue: use **Report a vulnerability** on the repository's **Security** tab (see `SECURITY.md`).
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched the existing issues and found none about this.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Shown in **Settings › Updates**, and on the first line of the copied technical logs.
+      placeholder: "2.3.2"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system details
+      description: Windows version, or Linux distribution and desktop environment.
+      placeholder: "Windows 11, Fedora 42 + GNOME, Ubuntu 24.04…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you saw, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Technical logs
+      description: |
+        Open **Settings › Logs**, click **Copy for a bug report** and paste the result here. The copy is redacted: tokens, passwords and Steam Guard secrets are removed. It may still show account names: edit them out if you prefer.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Optional. Drag images here.
+    validations:
+      required: false

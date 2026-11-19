@@ -3,10 +3,10 @@ use std::sync::Arc;
 
 use steam_core::model::SteamAccount;
 
-use super::{AppState, SteamOperationGuard};
+use super::{save_or_restore, AppState, SteamOperationGuard};
 
 impl AppState {
-    /// Called while the catalog is locked so older responses can be discarded.
+    // ! Called while the catalog is locked so older responses can be discarded.
     pub fn next_snapshot_revision(&self) -> u64 {
         self.snapshot_revision.fetch_add(1, Ordering::Relaxed) + 1
     }
@@ -24,10 +24,7 @@ impl AppState {
         if let Some(visible) = visible_ids {
             inner.settings.data_mut().show_steam_ids = visible;
         }
-        if let Err(error) = inner.settings.save() {
-            *inner.settings.data_mut() = previous;
-            return Err(error);
-        }
+        save_or_restore(&mut inner.settings, previous)?;
         inner.masked = !inner.settings.data().show_account_names;
         inner.steam_ids_visible = inner.settings.data().show_steam_ids;
         Ok(())
@@ -47,10 +44,11 @@ impl AppState {
         };
         let mut inner = self.lock();
         let local = inner.accounts.clone();
-        let previous = inner.settings.data().guard_account_profiles.clone();
+        let previous = inner.settings.data().clone();
         if !indexed {
             ids.extend(
                 previous
+                    .guard_account_profiles
                     .keys()
                     .filter(|id| !ids.contains(id))
                     .cloned()
@@ -61,8 +59,7 @@ impl AppState {
         let changed = crate::retained_accounts::remember_profiles(profiles, &local, &stored, &ids);
         let accounts = crate::retained_accounts::display_accounts(&local, &ids, profiles);
         if changed {
-            if let Err(error) = inner.settings.save() {
-                inner.settings.data_mut().guard_account_profiles = previous;
+            if let Err(error) = save_or_restore(&mut inner.settings, previous) {
                 crate::logging::write(&format!(
                     "action=retain_guard_accounts status=failed error={}",
                     crate::logging::error_category(&error)

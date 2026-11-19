@@ -4,7 +4,6 @@ export type SteamIdentifierType = {
   value: string;
 };
 
-/** Public individual Steam IDs only. BigInt preserves all 64 bits. */
 export const steamIdentifiers = (steamId: string): SteamIdentifierType[] => {
   if (!/^[0-9]{1,20}$/.test(steamId)) {
     return [];
@@ -22,11 +21,10 @@ export const steamIdentifiers = (steamId: string): SteamIdentifierType[] => {
     return [];
   }
 
-  // Steam's invite alphabet maps the hexadecimal account ID, split at its midpoint.
-  // Format reference: ValvePython/steam, steam/steamid.py (as_invite_code).
+  // ! Steam's invite alphabet maps the hexadecimal account ID, split at its midpoint (ValvePython/steam, steamid.py).
   const hexAlphabet = "0123456789abcdef";
   const inviteAlphabet = "bcdfghjkmnpqrtvw";
-  const invite = [...accountId.toString(16)]
+  const invite = Array.from(accountId.toString(16))
     .map((digit) => inviteAlphabet[hexAlphabet.indexOf(digit)])
     .join("");
   const midpoint = Math.floor(invite.length / 2);

@@ -1,5 +1,4 @@
-// ! Steam's folders, processes and launch command are only known for Linux and
-// ! Windows; any other target would build an application that detects nothing.
+// ! Steam's folders, processes and launch command are only known for Linux and Windows; any other target would build an application that detects nothing.
 #[cfg(not(any(target_os = "linux", target_os = "windows")))]
 compile_error!("steam-core supports Linux and Windows only.");
 
@@ -9,6 +8,8 @@ pub mod autologin;
 pub mod error;
 pub mod error_code;
 pub mod games;
+#[cfg(not(windows))]
+pub mod linux_registry;
 pub mod metadata;
 pub mod model;
 pub mod pathdetect;
@@ -29,4 +30,3 @@ pub use metadata::RankStore;
 pub use model::{InstallKind, SteamAccount, SteamInstallation};
 pub use pathdetect::detect_all;
 pub use playtime::PlaytimeTracker;
-pub use util::format_playtime;
