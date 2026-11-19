@@ -116,6 +116,9 @@ jobs:
       - name: Check the interface
         run: npm run verify
 
+      - name: Audit the npm dependencies
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Check Rust
         run: |
           cargo fmt --all --check
